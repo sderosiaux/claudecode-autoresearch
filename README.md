@@ -36,41 +36,7 @@ Claude asks about your goal, command, metric, and files in scope (or infers from
 
 ### The loop
 
-```mermaid
-flowchart TD
-    A["/autoresearch:create"] --> B["Setup: branch, autoresearch.md, .sh, .jsonl"]
-    B --> C["Run baseline"]
-    C --> LOOP
-
-    subgraph LOOP["Experiment Loop (runs forever)"]
-        direction TB
-        E["Claude edits code"] --> F["run-experiment.sh ./autoresearch.sh"]
-        F --> G{"Benchmark\npassed?"}
-        G -- "exit != 0" --> CRASH["log: crash"]
-        G -- "exit 0" --> H{"checks.sh\nexists?"}
-        H -- no --> J{"Metric\nimproved?"}
-        H -- yes --> I{"Checks\npassed?"}
-        I -- no --> CFAIL["log: checks_failed"]
-        I -- yes --> J
-        J -- yes --> KEEP["log: keep (git commit)"]
-        J -- no --> DISCARD["log: discard (git revert)"]
-        KEEP --> E
-        DISCARD --> E
-        CRASH --> E
-        CFAIL --> E
-    end
-
-    LOOP -- "context reset" --> STOP{"Stop hook"}
-    STOP -- "iteration < max" --> RESUME["exit 2: inject resume prompt"]
-    RESUME --> LOOP
-    STOP -- "iteration >= max" --> END["Session ends"]
-
-    style KEEP fill:#2ea043,color:#fff
-    style DISCARD fill:#d29922,color:#fff
-    style CRASH fill:#cf222e,color:#fff
-    style CFAIL fill:#cf222e,color:#fff
-    style RESUME fill:#1f6feb,color:#fff
-```
+![Experiment loop](loop-diagram.png)
 
 ### Commands
 
