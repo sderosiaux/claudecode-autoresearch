@@ -36,64 +36,88 @@ Claude asks about your goal, command, metric, and files in scope (or infers from
 
 ### The loop
 
-```
-Edit code (uncommitted)
-     |
-     v
-run-experiment.sh "./autoresearch.sh"   <- timed, captures output
-     |
-     v
-log-experiment.sh <status> <metric>     <- JSONL + git commit/revert
-     |
-     v
-Better? keep (commit) : discard (revert)
-     |
-     +-- repeat forever
+```mermaid
+flowchart TD
+    A["/autoresearch:create"] --> B["Setup: branch, autoresearch.md, .sh, .jsonl"]
+    B --> C["Run baseline"]
+    C --> LOOP
+
+    subgraph LOOP["Experiment Loop (runs forever)"]
+        direction TB
+        E["Claude edits code"] --> F["run-experiment.sh ./autoresearch.sh"]
+        F --> G{"Benchmark\npassed?"}
+        G -- "exit != 0" --> CRASH["log: crash"]
+        G -- "exit 0" --> H{"checks.sh\nexists?"}
+        H -- no --> J{"Metric\nimproved?"}
+        H -- yes --> I{"Checks\npassed?"}
+        I -- no --> CFAIL["log: checks_failed"]
+        I -- yes --> J
+        J -- yes --> KEEP["log: keep (git commit)"]
+        J -- no --> DISCARD["log: discard (git revert)"]
+        KEEP --> E
+        DISCARD --> E
+        CRASH --> E
+        CFAIL --> E
+    end
+
+    LOOP -- "context reset" --> STOP{"Stop hook"}
+    STOP -- "iteration < max" --> RESUME["exit 2: inject resume prompt"]
+    RESUME --> LOOP
+    STOP -- "iteration >= max" --> END["Session ends"]
+
+    style KEEP fill:#2ea043,color:#fff
+    style DISCARD fill:#d29922,color:#fff
+    style CRASH fill:#cf222e,color:#fff
+    style CFAIL fill:#cf222e,color:#fff
+    style RESUME fill:#1f6feb,color:#fff
 ```
 
-### Monitor
+### Commands
 
-```
-/autoresearch:status
-```
-
-### Stop
-
-```
-/autoresearch:stop
-```
-
-### Resume after pause
-
-```
-/autoresearch
-```
+| Command | Purpose |
+|---------|---------|
+| `/autoresearch:create` | Setup: goal, command, metric, branch, config files |
+| `/autoresearch` | Resume/continue the loop |
+| `/autoresearch:stop` | Remove state file, end auto-resume |
+| `/autoresearch:status` | Print dashboard |
 
 ## How it works
 
-### Skills
+```mermaid
+graph LR
+    subgraph Plugin
+        S1["skills/"] --> S2["autoresearch-create"]
+        S1 --> S3["autoresearch"]
+        S1 --> S4["autoresearch-stop"]
+        S1 --> S5["autoresearch-status"]
+        SC["scripts/"] --> SC1["run-experiment.sh"]
+        SC --> SC2["log-experiment.sh"]
+        SC --> SC3["status.sh"]
+        H["hooks/"] --> H1["Stop → stop-hook.sh"]
+        H --> H2["UserPromptSubmit → context-hook.sh"]
+    end
 
-| Skill | Purpose |
-|-------|---------|
-| `autoresearch:create` | Setup: goal, command, metric, branch, config files |
-| `autoresearch` | Resume/continue the loop |
-| `autoresearch:stop` | Remove state file, end auto-resume |
-| `autoresearch:status` | Print dashboard |
+    subgraph Project["Your project (generated)"]
+        P1["autoresearch.jsonl"]
+        P2["autoresearch.md"]
+        P3["autoresearch.sh"]
+        P4["autoresearch.checks.sh"]
+    end
 
-### Scripts
+    subgraph State["~/.claude/states/autoresearch/"]
+        ST1["session-id.md"]
+    end
 
-| Script | Purpose |
-|--------|---------|
-| `run-experiment.sh` | Run command with timer, capture output, optional checks |
-| `log-experiment.sh` | Write JSONL, git commit (keep) or revert (discard) |
-| `status.sh` | Parse JSONL, print summary |
+    SC1 -- runs --> P3
+    SC1 -- runs --> P4
+    SC2 -- appends --> P1
+    H1 -- reads --> ST1
+    H2 -- detects --> P1
 
-### Hooks
-
-| Event | Behavior |
-|-------|----------|
-| `Stop` | Auto-resume: blocks exit, injects resume prompt (up to 50 iterations) |
-| `UserPromptSubmit` | Injects autoresearch context when session is active |
+    style Plugin fill:#f6f8fa,stroke:#d0d7de
+    style Project fill:#dafbe1,stroke:#2ea043
+    style State fill:#ddf4ff,stroke:#1f6feb
+```
 
 ### Persistence
 
@@ -108,7 +132,23 @@ A fresh Claude session can resume from `autoresearch.md` + `autoresearch.jsonl` 
 
 ### Auto-resume
 
-When Claude hits a context limit, the Stop hook detects the active session and re-injects the loop prompt. Safety limits:
+```mermaid
+sequenceDiagram
+    participant C as Claude
+    participant S as Stop Hook
+    participant F as State File
+
+    C->>C: Loop until context limit
+    C--xS: Agent stops
+    S->>F: Find state file for session
+    F-->>S: iteration=3, max=50
+    S->>S: Check: iteration < max? rate limit ok?
+    S->>C: exit 2 + resume prompt (stderr)
+    C->>C: Reads autoresearch.md, continues loop
+    Note over C,F: Repeats up to max_iterations
+```
+
+Safety limits:
 - Max 50 iterations (configurable)
 - Min 30s between resumes
 - Crash detection: warns after 3 consecutive failures
