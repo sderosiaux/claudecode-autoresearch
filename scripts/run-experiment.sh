@@ -25,6 +25,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
 CHECKS_FILE="$PROJECT_DIR/autoresearch.checks.sh"
 
+# --- Save checkpoint for safe revert ---
+git rev-parse HEAD > "$PROJECT_DIR/.autoresearch-checkpoint" 2>/dev/null
+
 # --- Run benchmark ---
 TMPOUT=$(mktemp)
 trap 'rm -f "$TMPOUT"' EXIT

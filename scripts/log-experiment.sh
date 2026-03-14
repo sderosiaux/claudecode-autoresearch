@@ -62,18 +62,31 @@ case "$STATUS" in
   keep)
     # Append entry first, then commit everything
     echo "$ENTRY" >> "$JSONL_FILE"
+    rm -f .autoresearch-checkpoint
     git add -A 2>/dev/null
     git commit -q -m "experiment: $DESCRIPTION" 2>/dev/null || true
     COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
   discard|crash|checks_failed)
-    # Save JSONL outside the repo, revert everything, restore JSONL, append entry
-    JSONL_BAK=$(mktemp)
-    cp "$JSONL_FILE" "$JSONL_BAK" 2>/dev/null || true
-    git checkout -- . 2>/dev/null
+    # Save autoresearch files outside repo, hard-reset to checkpoint, restore them
+    BAK_DIR=$(mktemp -d)
+    cp "$JSONL_FILE" "$BAK_DIR/jsonl" 2>/dev/null || true
+    cp autoresearch.md "$BAK_DIR/md" 2>/dev/null || true
+    cp autoresearch.ideas.md "$BAK_DIR/ideas" 2>/dev/null || true
+
+    # Hard reset to checkpoint (handles both uncommitted edits AND rogue commits)
+    CHECKPOINT=$(cat .autoresearch-checkpoint 2>/dev/null || git rev-parse HEAD)
+    git reset --hard "$CHECKPOINT" 2>/dev/null
     git clean -fd 2>/dev/null
-    mv "$JSONL_BAK" "$JSONL_FILE"
+
+    # Restore autoresearch files
+    mv "$BAK_DIR/jsonl" "$JSONL_FILE" 2>/dev/null || true
+    [[ -f "$BAK_DIR/md" ]] && mv "$BAK_DIR/md" autoresearch.md
+    [[ -f "$BAK_DIR/ideas" ]] && mv "$BAK_DIR/ideas" autoresearch.ideas.md
+    rm -rf "$BAK_DIR"
+    rm -f .autoresearch-checkpoint
+
     echo "$ENTRY" >> "$JSONL_FILE"
     echo "REVERTED ($STATUS): $DESCRIPTION (metric: $METRIC)"
     ;;
