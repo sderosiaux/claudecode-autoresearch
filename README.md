@@ -14,15 +14,15 @@ Works for any optimization target: test speed, bundle size, build times, trainin
 
 ## Install
 
-Via the marketplace:
 ```bash
+# Add the marketplace (one-time)
+claude plugins marketplace add sderosiaux/claude-plugins
+
+# Install
 claude plugins install claudecode-autoresearch@sderosiaux-claude-plugins
 ```
 
-Manual:
-```bash
-git clone https://github.com/sderosiaux/claudecode-autoresearch ~/.claude/plugins/manual/claudecode-autoresearch
-```
+Restart Claude Code after installing.
 
 ## Usage
 
