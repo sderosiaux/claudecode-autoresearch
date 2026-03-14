@@ -29,7 +29,7 @@ Restart Claude Code after installing.
 ### Start a session
 
 ```
-/autoresearch:create optimize unit test runtime
+/claudecode-autoresearch:autoresearch-create optimize unit test runtime
 ```
 
 Claude asks about your goal, command, metric, and files in scope (or infers from context). Then it creates a branch, writes config files, runs the baseline, and starts looping.
@@ -43,7 +43,7 @@ Claude asks about your goal, command, metric, and files in scope (or infers from
 You ask Claude to optimize your test suite runtime:
 
 ```
-/autoresearch:create optimize vitest execution time
+/claudecode-autoresearch:autoresearch-create optimize vitest execution time
 ```
 
 Claude creates the branch, benchmark script, and starts looping. Here's what a real session looks like:
@@ -74,10 +74,10 @@ Claude never stops. It keeps trying ideas, reverting bad ones, committing good o
 
 | Command | Purpose |
 |---------|---------|
-| `/autoresearch:create` | Setup: goal, command, metric, branch, config files |
-| `/autoresearch` | Resume/continue the loop |
-| `/autoresearch:stop` | Remove state file, end auto-resume |
-| `/autoresearch:status` | Print dashboard |
+| `/claudecode-autoresearch:autoresearch-create` | Setup: goal, command, metric, branch, config files |
+| `/claudecode-autoresearch:autoresearch` | Resume/continue the loop |
+| `/claudecode-autoresearch:autoresearch-stop` | Remove state file, end auto-resume |
+| `/claudecode-autoresearch:autoresearch-status` | Print dashboard |
 
 ## How it works
 
@@ -85,7 +85,7 @@ The plugin has three layers:
 
 **Scripts** run benchmarks and record results. `run-experiment.sh` times your command and runs optional correctness checks. `log-experiment.sh` writes to the JSONL log and handles git (commit on keep, revert on discard).
 
-**Skills** teach Claude the loop. `/autoresearch:create` sets up the session. `/autoresearch` resumes it. Claude reads `autoresearch.md` for context and runs the scripts via Bash.
+**Skills** teach Claude the loop. `/claudecode-autoresearch:autoresearch-create` sets up the session. `/claudecode-autoresearch:autoresearch` resumes it. Claude reads `autoresearch.md` for context and runs the scripts via Bash.
 
 **Hooks** keep the loop alive. When Claude hits a context limit, the Stop hook blocks the exit and re-injects the loop prompt. The UserPromptSubmit hook reminds Claude it's in autoresearch mode.
 
@@ -102,7 +102,7 @@ A fresh Claude session can resume from `autoresearch.md` + `autoresearch.jsonl` 
 
 ### Auto-resume
 
-When Claude stops (context limit, crash), the Stop hook checks for an active state file. If found: block the exit, inject a resume prompt, Claude continues. Up to 50 iterations (configurable), with a 30s cooldown between resumes and crash detection after 3 consecutive failures. `/autoresearch:stop` disables it.
+When Claude stops (context limit, crash), the Stop hook checks for an active state file. If found: block the exit, inject a resume prompt, Claude continues. Up to 50 iterations (configurable), with a 30s cooldown between resumes and crash detection after 3 consecutive failures. `/claudecode-autoresearch:autoresearch-stop` disables it.
 
 ## Example domains
 
