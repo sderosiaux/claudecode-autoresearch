@@ -49,76 +49,28 @@ Claude asks about your goal, command, metric, and files in scope (or infers from
 
 ## How it works
 
-```mermaid
-graph LR
-    subgraph Plugin
-        S1["skills/"] --> S2["autoresearch-create"]
-        S1 --> S3["autoresearch"]
-        S1 --> S4["autoresearch-stop"]
-        S1 --> S5["autoresearch-status"]
-        SC["scripts/"] --> SC1["run-experiment.sh"]
-        SC --> SC2["log-experiment.sh"]
-        SC --> SC3["status.sh"]
-        H["hooks/"] --> H1["Stop → stop-hook.sh"]
-        H --> H2["UserPromptSubmit → context-hook.sh"]
-    end
+The plugin has three layers:
 
-    subgraph Project["Your project (generated)"]
-        P1["autoresearch.jsonl"]
-        P2["autoresearch.md"]
-        P3["autoresearch.sh"]
-        P4["autoresearch.checks.sh"]
-    end
+**Scripts** run benchmarks and record results. `run-experiment.sh` times your command and runs optional correctness checks. `log-experiment.sh` writes to the JSONL log and handles git (commit on keep, revert on discard).
 
-    subgraph State["~/.claude/states/autoresearch/"]
-        ST1["session-id.md"]
-    end
+**Skills** teach Claude the loop. `/autoresearch:create` sets up the session. `/autoresearch` resumes it. Claude reads `autoresearch.md` for context and runs the scripts via Bash.
 
-    SC1 -- runs --> P3
-    SC1 -- runs --> P4
-    SC2 -- appends --> P1
-    H1 -- reads --> ST1
-    H2 -- detects --> P1
+**Hooks** keep the loop alive. When Claude hits a context limit, the Stop hook blocks the exit and re-injects the loop prompt. The UserPromptSubmit hook reminds Claude it's in autoresearch mode.
 
-    style Plugin fill:#f6f8fa,stroke:#d0d7de
-    style Project fill:#dafbe1,stroke:#2ea043
-    style State fill:#ddf4ff,stroke:#1f6feb
-```
-
-### Persistence
+### Files in your project
 
 | File | Purpose |
 |------|---------|
-| `autoresearch.jsonl` | Append-only experiment log |
-| `autoresearch.md` | Session doc (objective, files, what's been tried) |
-| `autoresearch.sh` | Benchmark script |
+| `autoresearch.jsonl` | Append-only experiment log (one JSON line per run) |
+| `autoresearch.md` | Session doc: objective, files in scope, what's been tried |
+| `autoresearch.sh` | Your benchmark script |
 | `autoresearch.checks.sh` | Optional correctness checks (tests, types, lint) |
 
 A fresh Claude session can resume from `autoresearch.md` + `autoresearch.jsonl` alone.
 
 ### Auto-resume
 
-```mermaid
-sequenceDiagram
-    participant C as Claude
-    participant S as Stop Hook
-    participant F as State File
-
-    C->>C: Loop until context limit
-    C--xS: Agent stops
-    S->>F: Find state file for session
-    F-->>S: iteration=3, max=50
-    S->>S: Check: iteration < max? rate limit ok?
-    S->>C: exit 2 + resume prompt (stderr)
-    C->>C: Reads autoresearch.md, continues loop
-    Note over C,F: Repeats up to max_iterations
-```
-
-Safety limits:
-- Max 50 iterations (configurable)
-- Min 30s between resumes
-- Crash detection: warns after 3 consecutive failures
-- `/autoresearch:stop` disables it
+When Claude stops (context limit, crash), the Stop hook checks for an active state file. If found: block the exit, inject a resume prompt, Claude continues. Up to 50 iterations (configurable), with a 30s cooldown between resumes and crash detection after 3 consecutive failures. `/autoresearch:stop` disables it.
 
 ## Example domains
 
