@@ -114,7 +114,19 @@ When Claude stops (context limit, crash), the Stop hook checks for an active sta
 | Training loss | val_bpb (lower) | `uv run train.py` |
 | Lighthouse | perf score (higher) | `lighthouse http://localhost:3000 --output=json` |
 
-## Testing
+## Try it
+
+Clone and run the demo — no Claude Code needed, just `bash`, `git`, `node`, and `jq`:
+
+```bash
+git clone https://github.com/sderosiaux/claudecode-autoresearch
+cd claudecode-autoresearch
+bash tests/demo.sh
+```
+
+This simulates 5 iterations (2 keeps, 1 discard, 1 crash, 1 checks_failed) on a toy JS file and prints the dashboard.
+
+Run the full test suite (29 tests covering all scripts and hooks):
 
 ```bash
 bash tests/test-scripts.sh
