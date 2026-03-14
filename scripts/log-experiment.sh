@@ -29,6 +29,18 @@ case "$STATUS" in
   *) echo "ERROR: Invalid status '$STATUS'. Must be keep|discard|crash|checks_failed" >&2; exit 1 ;;
 esac
 
+# Validate metric is a number (integer or float), default to 0
+if ! echo "$METRIC" | grep -qE '^-?[0-9]+\.?[0-9]*$'; then
+  echo "WARNING: metric '$METRIC' is not a number, defaulting to 0" >&2
+  METRIC=0
+fi
+
+# Validate metrics_json is valid JSON, default to {}
+if ! echo "$METRICS_JSON" | jq empty 2>/dev/null; then
+  echo "WARNING: invalid metrics JSON, defaulting to {}" >&2
+  METRICS_JSON="{}"
+fi
+
 TIMESTAMP=$(date +%s)
 
 # Flow: agent edits code (uncommitted) -> run-experiment -> log-experiment
