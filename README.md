@@ -38,6 +38,38 @@ Claude asks about your goal, command, metric, and files in scope (or infers from
 
 ![Experiment loop](loop-diagram.png)
 
+### Example session
+
+You ask Claude to optimize your test suite runtime:
+
+```
+/autoresearch:create optimize vitest execution time
+```
+
+Claude creates the branch, benchmark script, and starts looping. Here's what a real session looks like:
+
+```
+#   Status          Metric    Description
+1   keep            42.3s     baseline
+2   keep            38.1s     parallelize test files across 4 workers
+3   discard         39.0s     switch to happy-dom (slower than jsdom here)
+4   keep            31.7s     lazy-import heavy test fixtures
+5   crash           0s        syntax error in config — auto-fixed, moving on
+6   keep            28.4s     replace glob imports with explicit paths
+7   checks_failed   25.1s     aggressive mocking broke 3 integration tests
+8   keep            26.9s     selective mocking — tests pass, still faster
+...
+```
+
+```
+Session: optimize vitest execution time
+Runs: 8 | 5 kept | 1 discarded | 1 crashed | 1 checks_failed
+Baseline: 42.3s
+Best:     26.9s (-36.4%)
+```
+
+Claude never stops. It keeps trying ideas, reverting bad ones, committing good ones. When it hits a context limit, the Stop hook auto-resumes a fresh session that picks up where it left off.
+
 ### Commands
 
 | Command | Purpose |
