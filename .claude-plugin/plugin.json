@@ -1,0 +1,12 @@
+{
+  "name": "claudecode-autoresearch",
+  "description": "Autonomous experiment loop for Claude Code. Edit, benchmark, keep or discard, repeat forever.",
+  "version": "0.1.0",
+  "author": {
+    "name": "sderosiaux"
+  },
+  "homepage": "https://github.com/sderosiaux/claudecode-autoresearch",
+  "repository": "https://github.com/sderosiaux/claudecode-autoresearch",
+  "license": "MIT",
+  "keywords": ["autoresearch", "experiments", "optimization", "benchmarks", "autonomous"]
+}
