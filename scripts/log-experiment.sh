@@ -56,13 +56,12 @@ case "$STATUS" in
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
   discard|crash|checks_failed)
-    # Save JSONL, revert everything, restore JSONL, append entry
-    cp "$JSONL_FILE" "${JSONL_FILE}.bak" 2>/dev/null || true
+    # Save JSONL outside the repo, revert everything, restore JSONL, append entry
+    JSONL_BAK=$(mktemp)
+    cp "$JSONL_FILE" "$JSONL_BAK" 2>/dev/null || true
     git checkout -- . 2>/dev/null
     git clean -fd 2>/dev/null
-    if [[ -f "${JSONL_FILE}.bak" ]]; then
-      mv "${JSONL_FILE}.bak" "$JSONL_FILE"
-    fi
+    mv "$JSONL_BAK" "$JSONL_FILE"
     echo "$ENTRY" >> "$JSONL_FILE"
     echo "REVERTED ($STATUS): $DESCRIPTION (metric: $METRIC)"
     ;;
