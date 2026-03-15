@@ -67,7 +67,7 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 <What must NOT be touched.>
 
 ## Constraints
-<Hard rules: tests must pass, no new deps, etc.>
+<ONLY constraints the user explicitly stated. Do NOT invent constraints from the environment (e.g. do not lock to the currently installed language version, runtime, or OS). The optimization loop should be free to explore any version, runtime, or toolchain unless the user said otherwise.>
 
 ## Profiling Notes
 <Where time/resources are actually spent. Update periodically.>
@@ -93,6 +93,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Don't thrash.** Repeatedly reverting? Try something structurally different.
 - **Crashes:** fix if trivial, otherwise log and move on.
 - **Think longer when stuck.** Re-read source files, reason about what the system is doing at runtime.
+- **Don't self-impose constraints.** Never lock the language version, runtime, JVM implementation, or OS configuration unless the user explicitly said to. The environment is part of the optimization surface.
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
 
 Each iteration:
