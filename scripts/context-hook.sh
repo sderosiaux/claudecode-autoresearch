@@ -105,7 +105,14 @@ if [[ -x "$CWD/autoresearch.checks.sh" ]]; then
   CHECKS=" Backpressure checks active."
 fi
 
-ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}
+# Dimension audit nudge every 10 experiments
+DIM_AUDIT=""
+if [[ $TOTAL -gt 0 ]] && [[ $((TOTAL % 10)) -eq 0 ]]; then
+  DIM_AUDIT="
+- DIMENSION AUDIT DUE ($TOTAL experiments). List every optimization layer you have NOT tried: language version, runtime flags, OS/kernel, data layout, algorithm class, I/O strategy, parallelism model, library swaps, measurement methodology. Your next experiment MUST come from an unexplored layer."
+fi
+
+ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}${DIM_AUDIT}
 
 RULES:
 - DO NOT STOP. DO NOT ASK \"should I continue?\". DO NOT PAUSE.
@@ -113,6 +120,7 @@ RULES:
 - Read autoresearch.md for session context. Use the plugin scripts.
 - Name the active cognitive strategy (tabu, annealing, crossover, etc.) before each experiment.
 - Think before running — don't waste experiments on things you can reason about.
-- Try structural changes before micro-optimizations."
+- Try structural changes before micro-optimizations.
+- Every 10 experiments: audit which optimization LAYERS you haven't touched (runtime, OS, data layout, algorithm, I/O, parallelism, tooling)."
 
 jq -nc --arg ctx "$ENFORCE" '{additionalContext: $ctx}'

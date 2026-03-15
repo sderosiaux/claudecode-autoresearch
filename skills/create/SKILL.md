@@ -148,7 +148,19 @@ Name the active strategy at each decision point. These are cognitive activators 
 - **Simulated annealing.** Early in the session (T=high): accept bold architectural changes, even temporary regressions, if they open new possibility space. Later (T=low): strict improvement only. Name which mode you're in.
 - **Tabu search.** Never revisit a failed approach. But explore the *boundary* of the tabu set — adjacent variations that avoid the specific failure mode. Track tabu approaches in "What's Been Tried."
 - **Evolutionary crossover.** When multiple past experiments each had partial wins, combine their best traits into one experiment. The hybrid must beat both parents or get discarded.
-- **Random restarts.** Every ~10 experiments, force a radically different approach — not a variation on the current theme. Break out of the current strategy basin.
+- **Random restarts.** Every ~10 experiments, force a radically different *layer* of the stack — not a variation in the same layer. If you've been changing code, try runtime flags. If you've been tuning the algorithm, try changing the data representation. Break out of the current strategy basin by changing WHERE you optimize, not just WHAT.
+- **Dimension expansion.** Every ~10 experiments, STOP and enumerate all optimization layers you have NOT touched yet. Walk this checklist and ask "have I tried anything in this layer?":
+  1. **Language/runtime version** — newer compiler, newer VM, newer stdlib? What features does the latest version unlock?
+  2. **Runtime flags** — GC tuning, JIT options, memory settings, compilation thresholds?
+  3. **OS/kernel** — huge pages, CPU affinity, scheduler policy, I/O scheduler, syscall avoidance?
+  4. **Data representation** — layout, encoding, compression, SOA vs AOS, off-heap?
+  5. **Algorithm class** — are you micro-optimizing within one algorithm when a fundamentally different algorithm exists?
+  6. **I/O strategy** — mmap, io_uring, buffering, async, batching?
+  7. **Parallelism model** — threads, tasks, SIMD, pipeline vs data parallel?
+  8. **Tool/library swap** — is there a faster parser, allocator, hash map, serializer available?
+  9. **Measurement methodology** — are you benchmarking correctly? Warmup, steady state, coordinated omission?
+  Any layer with zero experiments is a blind spot. Your next experiment MUST come from an unexplored layer.
+  Write the layer audit to autoresearch.md under "Dimension Audit."
 - **Multi-fidelity.** Before committing to a full benchmark, do a cheap pre-check when possible (<5s). Kill obviously bad ideas early.
 - **MCTS rollout.** Before running, simulate downstream: "If this works, what does it unlock? If it fails, what do we learn?" Prioritize high-information experiments over safe incremental ones.
 - **Drain ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
