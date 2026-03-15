@@ -185,10 +185,7 @@ STATE_FILE="$HOME/.claude/states/autoresearch/test123.md"
 cat > "$STATE_FILE" << STATEEOF
 ---
 session_id: test-session-456
-iteration: 0
-max_iterations: 3
 cwd: "$TMPDIR"
-started_at: "2026-03-14T10:00:00"
 last_resume: 0
 ---
 Resume the autoresearch experiment loop. Read autoresearch.md for context.
@@ -202,36 +199,59 @@ set -e
 
 assert_eq "state file present = exit 2 (block)" "2" "$EXIT_CODE"
 assert_contains "resume prompt injected" "Auto-Resume" "$HOOK_STDERR"
-assert_contains "iteration incremented in prompt" "iteration 1/3" "$HOOK_STDERR"
 
-# Check iteration was incremented in state file
-NEW_ITER=$(grep 'iteration:' "$STATE_FILE" | head -1 | sed 's/iteration: *//')
-assert_eq "iteration incremented to 1" "1" "$NEW_ITER"
+# Check last_resume was updated in state file
+NEW_RESUME=$(grep 'last_resume:' "$STATE_FILE" | head -1 | sed 's/last_resume: *//')
+TESTS=$((TESTS + 1))
+if [[ "$NEW_RESUME" -gt 0 ]]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: last_resume updated"
+else
+  FAIL=$((FAIL + 1))
+  echo "  FAIL: last_resume not updated"
+fi
 
 echo ""
-echo "=== Test 9: stop-hook.sh (max iterations = allow exit) ==="
+echo "=== Test 9: stop-hook.sh (maxExperiments reached = allow exit) ==="
 
-# Set iteration to max
-sed -i '' 's/^iteration: .*/iteration: 3/' "$STATE_FILE"
+# Add enough experiments to hit maxExperiments=3
+echo '{"type":"config","name":"test","metricName":"x","metricUnit":"","bestDirection":"lower","maxExperiments":3}' > autoresearch.jsonl
+echo '{"status":"keep","metric":10}' >> autoresearch.jsonl
+echo '{"status":"keep","metric":9}' >> autoresearch.jsonl
+echo '{"status":"discard","metric":11}' >> autoresearch.jsonl
+
+# Recreate state file (previous test's hook may have updated last_resume)
+cat > "$STATE_FILE" << STATEEOF
+---
+session_id: test-session-456
+cwd: "$TMPDIR"
+last_resume: 0
+---
+Resume loop.
+STATEEOF
 
 set +e
 echo '{"session_id":"test-session-456","cwd":"'"$TMPDIR"'"}' | "$SCRIPTS/stop-hook.sh" 2>/dev/null
 EXIT_CODE=$?
 set -e
 
-assert_eq "max iterations = exit 0" "0" "$EXIT_CODE"
+assert_eq "maxExperiments reached = exit 0" "0" "$EXIT_CODE"
 # State file should be cleaned up
 TESTS=$((TESTS + 1))
 if [[ ! -f "$STATE_FILE" ]]; then
   PASS=$((PASS + 1))
-  echo "  PASS: state file cleaned up after max iterations"
+  echo "  PASS: state file cleaned up after maxExperiments"
 else
   FAIL=$((FAIL + 1))
-  echo "  FAIL: state file still exists after max iterations"
+  echo "  FAIL: state file still exists after maxExperiments"
 fi
 
 echo ""
 echo "=== Test 10: context-hook.sh ==="
+
+# Reset JSONL (test 9 may have filled it to maxExperiments)
+echo '{"type":"config","name":"test","metricName":"x","metricUnit":"","bestDirection":"lower","maxExperiments":100}' > autoresearch.jsonl
+echo '{"status":"keep","metric":10}' >> autoresearch.jsonl
 
 # Test with JSONL present
 CTX_OUTPUT=$(echo '{"cwd":"'"$TMPDIR"'","prompt":"optimize something"}' | "$SCRIPTS/context-hook.sh")

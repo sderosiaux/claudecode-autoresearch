@@ -30,10 +30,7 @@ All scripts are in the plugin. Reference them as:
    cat > ~/.claude/states/autoresearch/$(openssl rand -hex 4).md << 'STATEOF'
    ---
    session_id: "$SESSION_ID"
-   iteration: 0
-   max_iterations: 10
    cwd: "$(pwd)"
-   started_at: "$(date -u +%Y-%m-%dT%H:%M:%S)"
    last_resume: 0
    ---
    Resume the autoresearch experiment loop. Read autoresearch.md and git log for context. Check autoresearch.ideas.md if it exists. Be careful not to overfit to the benchmarks and do not cheat.

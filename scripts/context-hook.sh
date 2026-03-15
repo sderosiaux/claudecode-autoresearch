@@ -28,9 +28,9 @@ if [[ "$PROMPT" =~ autoresearch:stop ]] || [[ "$PROMPT" =~ autoresearch-stop ]];
 fi
 
 # --- Session stats ---
-TOTAL=$(grep -c '"status"' "$JSONL" 2>/dev/null || echo 0)
-KEPT=$(grep -c '"keep"' "$JSONL" 2>/dev/null || echo 0)
-DISCARDED=$(grep -c '"discard"' "$JSONL" 2>/dev/null || echo 0)
+TOTAL=$(grep -c '"status"' "$JSONL" 2>/dev/null) || TOTAL=0
+KEPT=$(grep -c '"keep"' "$JSONL" 2>/dev/null) || KEPT=0
+DISCARDED=$(grep -c '"discard"' "$JSONL" 2>/dev/null) || DISCARDED=0
 
 # --- Hard cap on total experiments ---
 CONFIG_LINE_CAP=$(grep '"type":"config"' "$JSONL" 2>/dev/null | head -1)
