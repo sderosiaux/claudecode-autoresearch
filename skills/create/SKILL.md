@@ -170,4 +170,20 @@ Name the active strategy at each decision point. These are cognitive activators 
 - **Bundle experiments.** Occasionally combine 2-3 small ideas to test interaction effects.
 - **Check metric noise.** If recent improvements are small, use `runs 3` (or more) on the run-experiment script to get median + stddev. If stddev > improvement, the gain is noise.
 
+## Deep Optimization Patterns
+
+When generating experiment ideas, ask yourself these questions. Each one is a cognitive pattern that unlocks non-obvious improvements. Walk through them when stuck or when entering a new optimization layer.
+
+- **Abstraction erasure.** "What abstraction is the runtime/language imposing that I could bypass entirely?" (String → raw bytes, Double.parseDouble → scaled integer arithmetic, HashMap → flat open-addressing array, object → struct-of-fields in a byte array)
+- **Word-level thinking (SWAR).** "Can I process multiple bytes/elements in a single register operation?" Read 8 bytes as a long, use bitmasks to find delimiters or parse numbers in parallel. The CPU processes 64 bits at once — use all of them.
+- **Input domain specialization.** "The input isn't arbitrary — what structural constraints can I exploit?" If temperatures have exactly 1 decimal digit and max 2 integer digits, there are only 4 formats: `n.n`, `nn.n`, `-n.n`, `-nn.n`. Replace a parser loop with a dispatch tree.
+- **Branch elimination.** "Which code path is most probable? Can I make it branchless?" Use arithmetic (mask, multiply, shift) instead of if/else. Lookup tables instead of computed conditionals. The branch predictor is a finite resource — don't waste it on predictable paths.
+- **Latency hiding.** "Can I interleave independent work to fill CPU pipeline stalls?" Process 2-3 independent data streams in the same thread so the CPU has useful work while waiting on memory loads. This isn't parallelism — it's keeping the pipeline full.
+- **Data structure bifurcation.** "Should I split into specialized fast/slow paths based on data distribution?" If 75% of keys are < 8 bytes, use an inline hash map for short keys and a pointer-based one for long keys. Measure the distribution first, then design for the common case.
+- **Cache-line engineering.** "Is data I'll access together physically adjacent in memory?" Place key + stats contiguously so the cache fetch for lookup amortizes the stats access. Align entries to cache lines (64 bytes on x86) to avoid false sharing.
+- **Shared-nothing parallelism.** "Can I eliminate ALL coordination during the hot path?" Per-thread private data structures, merge only at the end. No locks, no atomics, no CAS during processing. File-segment partitioning rather than record-level parallelism.
+- **Measurement questioning.** "What am I ACTUALLY measuring? Is any measured work not part of the real problem?" JVM startup/teardown, GC finalization, file munmap — these are overhead, not computation. Question every phase in the measured window.
+- **Precompute over compute.** "Can bounded-range arithmetic become a table lookup?" If an expression's input has a small range (0-8, 0-64), pre-build a lookup array. A table load from L1 cache (~1ns) beats complex arithmetic in a pipeline.
+- **Empirical distribution awareness.** "What does the actual data look like?" Don't design for worst-case uniformly. Profile the real distribution (key lengths, value ranges, access patterns), then optimize the most common case. Rare cases get a slow path — that's fine.
+
 **NEVER STOP.** Keep going until interrupted.
