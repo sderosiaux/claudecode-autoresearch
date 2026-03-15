@@ -80,6 +80,8 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 
 Bash script (`set -euo pipefail`) that: pre-checks fast (<1s), runs the benchmark, outputs `METRIC name=number` lines. Keep it fast.
 
+**The benchmark scripts are NOT immutable.** You can and should modify them to support new optimization dimensions. Examples: add a `jvm.opts` file that the script reads for JVM flags, add environment variable support, change compiler flags, add profiling hooks. If a dimension expansion audit reveals "runtime flags" as a blind spot, extend the script to support it — don't assume the scripts are off-limits.
+
 ### autoresearch.checks.sh (optional)
 
 Bash script for backpressure checks: tests, types, lint. Only create when constraints require it. Keep output minimal (suppress success, show only errors).
