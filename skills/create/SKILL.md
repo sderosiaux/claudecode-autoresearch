@@ -161,6 +161,8 @@ Name the active strategy at each decision point. These are cognitive activators 
   9. **Measurement methodology** — are you benchmarking correctly? Warmup, steady state, coordinated omission?
   Any layer with zero experiments is a blind spot. Your next experiment MUST come from an unexplored layer.
   Write the layer audit to autoresearch.md under "Dimension Audit."
+- **Reverse-engineer the experts.** When optimizing a well-studied problem, ask: "What production system already solves this?" (Flink, ClickHouse, LMAX Disruptor, etc.) Search for how they solved it — their architecture, data structures, and tricks. Not papers — actual implementations and design docs.
+- **System observability.** Don't just read source code — observe the running system. Use OS-level tools (`perf stat`, `vmstat`, `iostat`, `strace`, GC logs, JFR/async-profiler) to understand what the CPU, memory, and I/O subsystem are actually doing. The bottleneck you assume from reading code is often not the real one.
 - **Multi-fidelity.** Before committing to a full benchmark, do a cheap pre-check when possible (<5s). Kill obviously bad ideas early.
 - **MCTS rollout.** Before running, simulate downstream: "If this works, what does it unlock? If it fails, what do we learn?" Prioritize high-information experiments over safe incremental ones.
 - **Drain ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
