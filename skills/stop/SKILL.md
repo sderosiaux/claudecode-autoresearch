@@ -23,4 +23,4 @@ Stop the active autoresearch loop and disable auto-resume.
    ```
 2. Run `${CLAUDE_PLUGIN_ROOT}/scripts/status.sh` to show final summary
 3. Report: total runs, best metric, improvement vs baseline
-4. Suggest: "Run `/claudecode-autoresearch:autoresearch` to resume later, or `/claudecode-autoresearch:autoresearch-create` to start a new session."
+4. Suggest: "Run `/autoresearch:resume` to resume later, or `/autoresearch:create` to start a new session."
