@@ -22,7 +22,7 @@ All scripts are in the plugin. Reference them as:
 5. If constraints require correctness checks (tests must pass, types must check), write `autoresearch.checks.sh`. Commit it.
 6. Write the config line to `autoresearch.jsonl`:
    ```bash
-   echo '{"type":"config","name":"<name>","metricName":"<metric>","metricUnit":"<unit>","bestDirection":"<lower|higher>"}' > autoresearch.jsonl
+   echo '{"type":"config","name":"<name>","metricName":"<metric>","metricUnit":"<unit>","bestDirection":"<lower|higher>","maxExperiments":100}' > autoresearch.jsonl
    ```
 7. Create the auto-resume state file:
    ```bash
