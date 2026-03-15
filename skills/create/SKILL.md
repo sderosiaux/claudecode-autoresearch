@@ -110,7 +110,31 @@ Each iteration:
 
 ## Performance Knowledge Base
 
-When optimizing performance (latency, throughput, memory, CPU), fetch techniques from https://github.com/sderosiaux/linux-perf-handbook — it covers Linux, kernel tuning, JVM internals, latency techniques, profiling tools, and more. Use it to inform experiment ideas and profiling strategy.
+**Trigger:** At session start (before first experiment) AND when plateauing (4+ discards in last 5 experiments), you MUST fetch relevant handbook files for fresh ideas.
+
+**How:** Use `WebFetch` on the raw GitHub URLs below. Read the file, extract applicable techniques, add promising ones to `autoresearch.ideas.md`.
+
+**Base URL:** `https://raw.githubusercontent.com/sderosiaux/linux-perf-handbook/main/`
+
+**Which files to fetch** (pick by domain — read 2-3 most relevant):
+
+| Domain | Files |
+|--------|-------|
+| JVM / Java | `10-java-jvm.md` |
+| Latency / tail latency | `13-latency-analysis.md`, `coordinated-omission-guide.md` |
+| I/O / disk / storage | `04-disk-storage.md`, `19-storage-engine-patterns.md` |
+| CPU / profiling | `05-performance-profiling.md`, `16-scheduler-interrupts.md` |
+| Memory / allocation | `15-memory-subsystem.md` |
+| Network / throughput | `03-network-analysis.md`, `09-network-tuning.md` |
+| Kernel tuning | `08-kernel-tuning.md` |
+| Containers | `07-containers-k8s.md`, `container-debugging-patterns.md` |
+| Database | `14-database-profiling.md`, `database-production-debugging.md` |
+| General debugging | `00-troubleshooting-framework.md`, `julia-evans-systems-debugging.md` |
+| Lock-free / concurrency | `crdt-lock-free-distributed-state.md` |
+| eBPF / tracing | `06-ebpf-tracing.md`, `17-ftrace-production.md` |
+| Off-CPU / blocking | `18-off-cpu-analysis.md` |
+
+**Example:** For a Java throughput benchmark, at session start fetch `10-java-jvm.md` and `05-performance-profiling.md`. When plateauing, fetch `13-latency-analysis.md` or `15-memory-subsystem.md` for orthogonal ideas.
 
 ## Exploration Discipline
 
