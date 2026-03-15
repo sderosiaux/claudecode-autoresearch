@@ -102,8 +102,9 @@ Each iteration:
    Optional args: `runs` (default 1) — run benchmark N times, report median + stddev. `warmup` (default 0) — untimed warmup runs first (JVM/JIT).
    When metric noise is suspected, increase runs to 3-5.
 4. Parse the AUTORESEARCH_* output lines
-5. `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
-   (log-experiment handles git: commits on keep, reverts on discard/crash)
+5. **MANDATORY: call the script.** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
+   This script handles EVERYTHING: JSONL logging, git commit on keep, git reset on discard/crash.
+   **NEVER** manually append to autoresearch.jsonl. **NEVER** manually revert code. **NEVER** manually git commit experiments. The script does all of this.
 6. Update "What's Been Tried" in autoresearch.md periodically
 7. Write promising deferred ideas to `autoresearch.ideas.md`
 8. Repeat

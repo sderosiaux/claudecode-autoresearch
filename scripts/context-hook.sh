@@ -117,7 +117,7 @@ ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}
 RULES:
 - DO NOT STOP. DO NOT ASK \"should I continue?\". DO NOT PAUSE.
 - Run the next experiment immediately after logging the previous one.
-- Read autoresearch.md for session context. Use the plugin scripts.
+- ALWAYS use log-experiment.sh to record results. NEVER manually echo/append to autoresearch.jsonl. NEVER manually revert code. The script handles git commit/revert.
 - Name the active cognitive strategy (tabu, annealing, crossover, etc.) before each experiment.
 - Think before running — don't waste experiments on things you can reason about.
 - Try structural changes before micro-optimizations.
