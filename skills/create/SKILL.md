@@ -98,7 +98,9 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 Each iteration:
 1. Think about what to try next (read autoresearch.md "What's Been Tried")
 2. Edit code (do NOT commit yet)
-3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
+3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup]`
+   Optional args: `runs` (default 1) — run benchmark N times, report median + stddev. `warmup` (default 0) — untimed warmup runs first (JVM/JIT).
+   When metric noise is suspected, increase runs to 3-5.
 4. Parse the AUTORESEARCH_* output lines
 5. `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
    (log-experiment handles git: commits on keep, reverts on discard/crash)
@@ -125,6 +127,6 @@ Name the active strategy at each decision point. These are cognitive activators 
 - **MCTS rollout.** Before running, simulate downstream: "If this works, what does it unlock? If it fails, what do we learn?" Prioritize high-information experiments over safe incremental ones.
 - **Drain ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
 - **Bundle experiments.** Occasionally combine 2-3 small ideas to test interaction effects.
-- **Check metric noise.** If recent improvements are small, run the benchmark 3x to check variance. If variance > improvement, increase iterations or use median.
+- **Check metric noise.** If recent improvements are small, use `runs 3` (or more) on the run-experiment script to get median + stddev. If stddev > improvement, the gain is noise.
 
 **NEVER STOP.** Keep going until interrupted.

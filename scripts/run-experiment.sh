@@ -3,7 +3,14 @@ set -uo pipefail
 
 # run-experiment.sh — Run a command with timing, capture output, run optional checks.
 #
-# Usage: run-experiment.sh <command> [timeout_seconds] [checks_timeout_seconds]
+# Usage: run-experiment.sh <command> [timeout] [checks_timeout] [runs] [warmup]
+#
+# Args:
+#   command:        benchmark command to run
+#   timeout:        max seconds per run (default: 600)
+#   checks_timeout: max seconds for checks (default: 300)
+#   runs:           number of measured runs, report median (default: 1)
+#   warmup:         number of untimed warmup runs (default: 0)
 #
 # Output (last lines, machine-readable):
 #   AUTORESEARCH_EXIT=<0|1>
@@ -14,12 +21,17 @@ set -uo pipefail
 #   AUTORESEARCH_CHECKS=<pass|fail|skip>
 #   AUTORESEARCH_CHECKS_DURATION=<seconds>
 #   AUTORESEARCH_CHECKS_OUTPUT=<base64-encoded>
+#   AUTORESEARCH_RUNS=<N>
+#   AUTORESEARCH_WARMUP=<N>
 #
-# METRIC lines from the command stdout are passed through as-is.
+# When runs > 1, METRIC lines report the median across runs.
+# Per-metric stddev is emitted as METRIC <name>_stddev=<value>.
 
-COMMAND="${1:?Usage: run-experiment.sh <command> [timeout] [checks_timeout]}"
+COMMAND="${1:?Usage: run-experiment.sh <command> [timeout] [checks_timeout] [runs] [warmup]}"
 TIMEOUT="${2:-600}"
 CHECKS_TIMEOUT="${3:-300}"
+RUNS="${4:-1}"
+WARMUP="${5:-0}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
@@ -39,31 +51,94 @@ fi
 # --- Save checkpoint for safe revert ---
 git rev-parse HEAD > "$PROJECT_DIR/.autoresearch-checkpoint" 2>/dev/null
 
-# --- Run benchmark ---
 TMPOUT=$(mktemp)
-trap 'rm -f "$TMPOUT"' EXIT
+METRICS_DIR=$(mktemp -d)
+trap 'rm -f "$TMPOUT"; rm -rf "$METRICS_DIR"' EXIT
 
-START=$(date +%s%N)
-timeout "${TIMEOUT}s" bash -c "$COMMAND" > "$TMPOUT" 2>&1
-EXIT_CODE=$?
-END=$(date +%s%N)
-
-DURATION=$(echo "scale=3; ($END - $START) / 1000000000" | bc)
-TIMED_OUT=false
-CRASHED=false
-PASSED=false
-
-if [[ $EXIT_CODE -eq 124 ]]; then
-  TIMED_OUT=true
-  CRASHED=true
-elif [[ $EXIT_CODE -ne 0 ]]; then
-  CRASHED=true
-else
-  PASSED=true
+# --- Warmup runs (untimed, output discarded) ---
+if [[ $WARMUP -gt 0 ]]; then
+  echo "Warmup: $WARMUP runs..." >&2
+  for ((w=1; w<=WARMUP; w++)); do
+    timeout "${TIMEOUT}s" bash -c "$COMMAND" > /dev/null 2>&1 || true
+    echo "  warmup $w/$WARMUP done" >&2
+  done
 fi
 
-# Output the command's stdout (includes METRIC lines)
-cat "$TMPOUT"
+# --- Measured runs ---
+TOTAL_START=$(date +%s%N)
+EXIT_CODE=0
+TIMED_OUT=false
+CRASHED=false
+PASSED=true
+COMPLETED_RUNS=0
+
+for ((r=1; r<=RUNS; r++)); do
+  [[ $RUNS -gt 1 ]] && echo "Run $r/$RUNS..." >&2
+
+  timeout "${TIMEOUT}s" bash -c "$COMMAND" > "$TMPOUT" 2>&1
+  RUN_EXIT=$?
+
+  if [[ $RUN_EXIT -eq 124 ]]; then
+    TIMED_OUT=true
+    CRASHED=true
+    PASSED=false
+    EXIT_CODE=$RUN_EXIT
+    break
+  elif [[ $RUN_EXIT -ne 0 ]]; then
+    CRASHED=true
+    PASSED=false
+    EXIT_CODE=$RUN_EXIT
+    break
+  fi
+
+  COMPLETED_RUNS=$((COMPLETED_RUNS + 1))
+
+  # Save METRIC lines from this run
+  grep '^METRIC ' "$TMPOUT" > "$METRICS_DIR/run_$r" 2>/dev/null || true
+  # Save non-METRIC output from last successful run
+  grep -v '^METRIC ' "$TMPOUT" > "$METRICS_DIR/last_output" 2>/dev/null || true
+done
+
+TOTAL_END=$(date +%s%N)
+DURATION=$(echo "scale=3; ($TOTAL_END - $TOTAL_START) / 1000000000" | bc)
+
+# --- Output results ---
+if [[ "$PASSED" == "true" ]] && [[ $RUNS -gt 1 ]]; then
+  # Non-METRIC output from last run (compilation messages, progress, etc.)
+  cat "$METRICS_DIR/last_output" 2>/dev/null
+
+  # Compute median + stddev per metric across runs
+  METRIC_NAMES=$(cat "$METRICS_DIR"/run_* 2>/dev/null | sed 's/^METRIC //' | cut -d= -f1 | sort -u)
+
+  for name in $METRIC_NAMES; do
+    VALUES=$(for ((i=1; i<=COMPLETED_RUNS; i++)); do
+      grep "^METRIC ${name}=" "$METRICS_DIR/run_$i" 2>/dev/null | sed "s/^METRIC ${name}=//"
+    done | sort -n)
+    COUNT=$(echo "$VALUES" | wc -l | tr -d ' ')
+
+    if [[ $COUNT -eq 0 ]]; then continue; fi
+
+    # Median: middle element (1-indexed)
+    MID=$(( (COUNT + 1) / 2 ))
+    MEDIAN=$(echo "$VALUES" | sed -n "${MID}p")
+
+    # Stddev
+    STDDEV=$(echo "$VALUES" | awk '{s+=$1; ss+=$1*$1; n++} END {if(n>1) printf "%.2f", sqrt((ss - s*s/n)/(n-1)); else print "0"}')
+
+    echo "METRIC ${name}=${MEDIAN}"
+    [[ $COUNT -gt 1 ]] && echo "METRIC ${name}_stddev=${STDDEV}"
+  done
+
+  # Show individual runs to stderr for transparency
+  echo "" >&2
+  echo "Individual runs:" >&2
+  for ((i=1; i<=COMPLETED_RUNS; i++)); do
+    echo "  run $i: $(cat "$METRICS_DIR/run_$i" 2>/dev/null | tr '\n' ' ')" >&2
+  done
+else
+  # Single run or failed — output as-is (backward compatible)
+  cat "$TMPOUT"
+fi
 
 # --- Run checks if benchmark passed and checks file exists ---
 CHECKS_STATUS="skip"
@@ -101,3 +176,5 @@ echo "AUTORESEARCH_TIMED_OUT=$TIMED_OUT"
 echo "AUTORESEARCH_CHECKS=$CHECKS_STATUS"
 echo "AUTORESEARCH_CHECKS_DURATION=$CHECKS_DURATION"
 echo "AUTORESEARCH_CHECKS_OUTPUT=$CHECKS_OUTPUT_B64"
+echo "AUTORESEARCH_RUNS=$RUNS"
+echo "AUTORESEARCH_WARMUP=$WARMUP"
