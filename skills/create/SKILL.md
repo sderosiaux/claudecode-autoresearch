@@ -108,11 +108,19 @@ Each iteration:
 
 ## Exploration Discipline
 
-- **Think before running.** Before each experiment, ask: "Could I know the answer without running this?" Purely syntactic changes (`void 0` vs `undefined`, `let` vs `var`, dot vs bracket notation) rarely matter — the compiler treats them identically. Don't waste experiments on things you can reason about.
-- **Profile every ~10 experiments.** Re-profile after major wins — the bottleneck shifts. Update "Profiling Notes" in autoresearch.md.
-- **Check metric noise.** Run the benchmark 3 times. If variance > improvement magnitude, increase iterations or use median of multiple runs.
-- **Drain the ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
-- **Bundle experiments.** Occasionally combine 2-3 small ideas in one experiment to test interaction effects.
-- **Escape local minima.** If your last 3 improvements were all <5%, you're in diminishing returns. Profile again or try a fundamentally different architecture.
+Name the active strategy at each decision point. These are cognitive activators — naming the algorithm forces the specific thinking pattern, not generic reasoning.
+
+- **Think before running.** Before each experiment: "Could I know the answer without running this?" Syntactic changes the compiler treats identically are not experiments.
+- **Sensitivity screening.** Profile every ~10 experiments. Rank factors by impact. Focus experiments on the top 2-3 dimensions. Explicitly ignore factors that don't move the needle. Update "Profiling Notes" in autoresearch.md.
+- **Surrogate landscape.** Every ~10 experiments, build a mental model: "Based on N data points, the quality gradient points toward X. The most promising unexplored region is Y. The exhausted regions are Z." Write this model to autoresearch.md under "Landscape Model."
+- **Simulated annealing.** Early in the session (T=high): accept bold architectural changes, even temporary regressions, if they open new possibility space. Later (T=low): strict improvement only. Name which mode you're in.
+- **Tabu search.** Never revisit a failed approach. But explore the *boundary* of the tabu set — adjacent variations that avoid the specific failure mode. Track tabu approaches in "What's Been Tried."
+- **Evolutionary crossover.** When multiple past experiments each had partial wins, combine their best traits into one experiment. The hybrid must beat both parents or get discarded.
+- **Random restarts.** Every ~10 experiments, force a radically different approach — not a variation on the current theme. Break out of the current strategy basin.
+- **Multi-fidelity.** Before committing to a full benchmark, do a cheap pre-check when possible (<5s). Kill obviously bad ideas early.
+- **MCTS rollout.** Before running, simulate downstream: "If this works, what does it unlock? If it fails, what do we learn?" Prioritize high-information experiments over safe incremental ones.
+- **Drain ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
+- **Bundle experiments.** Occasionally combine 2-3 small ideas to test interaction effects.
+- **Check metric noise.** If recent improvements are small, run the benchmark 3x to check variance. If variance > improvement, increase iterations or use median.
 
 **NEVER STOP.** Keep going until interrupted.

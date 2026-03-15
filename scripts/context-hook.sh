@@ -111,15 +111,8 @@ RULES:
 - DO NOT STOP. DO NOT ASK \"should I continue?\". DO NOT PAUSE.
 - Run the next experiment immediately after logging the previous one.
 - Read autoresearch.md for session context. Use the plugin scripts.
-
-EXPLORATION:
-- Think before running. Could you know the answer without an experiment? Purely syntactic changes rarely matter — don't waste runs on them.
-- Measure before changing. Use the language's profiling/diagnostic tools to find where time or resources are actually spent.
-- Look at actual output and behavior, not just source code.
-- Try algorithmic and structural changes before micro-optimizations.
-- When stuck: re-read the source files completely, question your assumptions, try the opposite of what you've been doing.
-- Combine previous wins — occasionally bundle 2-3 small ideas into one experiment to test synergies.
-- If your metric variance is larger than your improvements, increase iterations or add statistical analysis (multiple runs, median).
-- Keep a mental model of what the system is doing at runtime — what the CPU, memory, compiler, or runtime is actually doing with your code."
+- Name the active cognitive strategy (tabu, annealing, crossover, etc.) before each experiment.
+- Think before running — don't waste experiments on things you can reason about.
+- Try structural changes before micro-optimizations."
 
 jq -nc --arg ctx "$ENFORCE" '{additionalContext: $ctx}'
