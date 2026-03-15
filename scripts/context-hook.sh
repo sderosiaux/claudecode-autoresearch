@@ -109,7 +109,7 @@ fi
 DIM_AUDIT=""
 if [[ $TOTAL -gt 0 ]] && [[ $((TOTAL % 10)) -eq 0 ]]; then
   DIM_AUDIT="
-- DIMENSION AUDIT DUE ($TOTAL experiments). List every optimization layer you have NOT tried: language version, runtime flags, OS/kernel, data layout, algorithm class, I/O strategy, parallelism model, library swaps, measurement methodology. Your next experiment MUST come from an unexplored layer."
+- DIMENSION AUDIT DUE ($TOTAL experiments). List every optimization layer you have NOT tried: language version, runtime flags, build pipeline (PGO/AOT/CDS), OS/kernel, hardware features (lscpu), data layout, algorithm class, elimination (skip work entirely), problem reformulation (relax precision, approximate), I/O strategy, parallelism, pipeline reordering, cross-language hot path (JNI/FFI), library swaps, measurement methodology. Your next experiment MUST come from an unexplored layer."
 fi
 
 ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}${DIM_AUDIT}
@@ -121,6 +121,6 @@ RULES:
 - Name the active cognitive strategy (tabu, annealing, crossover, etc.) before each experiment.
 - Think before running — don't waste experiments on things you can reason about.
 - Try structural changes before micro-optimizations.
-- Every 10 experiments: audit which optimization LAYERS you haven't touched (runtime, OS, data layout, algorithm, I/O, parallelism, tooling)."
+- Every 10 experiments: audit which optimization LAYERS you haven't touched (runtime, build pipeline, OS, hardware, data layout, algorithm, elimination, problem reformulation, I/O, parallelism, pipeline order, cross-language, tooling)."
 
 jq -nc --arg ctx "$ENFORCE" '{additionalContext: $ctx}'

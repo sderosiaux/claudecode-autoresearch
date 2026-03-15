@@ -156,13 +156,19 @@ Name the active strategy at each decision point. These are cognitive activators 
 - **Dimension expansion.** Every ~10 experiments, STOP and enumerate all optimization layers you have NOT touched yet. Walk this checklist and ask "have I tried anything in this layer?":
   1. **Language/runtime version** — newer compiler, newer VM, newer stdlib? What features does the latest version unlock?
   2. **Runtime flags** — GC tuning, JIT options, memory settings, compilation thresholds?
-  3. **OS/kernel** — huge pages, CPU affinity, scheduler policy, I/O scheduler, syscall avoidance?
-  4. **Data representation** — layout, encoding, compression, SOA vs AOS, off-heap?
-  5. **Algorithm class** — are you micro-optimizing within one algorithm when a fundamentally different algorithm exists?
-  6. **I/O strategy** — mmap, io_uring, buffering, async, batching?
-  7. **Parallelism model** — threads, tasks, SIMD, pipeline vs data parallel?
-  8. **Tool/library swap** — is there a faster parser, allocator, hash map, serializer available?
-  9. **Measurement methodology** — are you benchmarking correctly? Warmup, steady state, coordinated omission?
+  3. **Build/compilation pipeline** — PGO (profile-guided optimization), LTO, AOT, CDS, native-image? Run benchmark → collect profile → recompile with profile data → measure again.
+  4. **OS/kernel** — huge pages, CPU affinity, scheduler policy, I/O scheduler, syscall avoidance?
+  5. **Hardware features** — run `lscpu` / `cat /proc/cpuinfo`. AVX2/AVX-512? AES-NI for hashing? NUMA topology? Specific cache line size? What does THIS machine offer that you're ignoring?
+  6. **Data representation** — layout, encoding, compression, SOA vs AOS, off-heap?
+  7. **Algorithm class** — are you micro-optimizing within one algorithm when a fundamentally different algorithm exists?
+  8. **Elimination** — what work can you skip entirely? Lazy evaluation, short-circuit, early exit, memoization. The fastest code is code that doesn't run. Which computations are actually needed?
+  9. **Problem reformulation** — can you solve something slightly different? Relax precision (float vs double)? Approximate instead of exact (t-digest vs full sort)? Change output format? Pre-sort input?
+  10. **I/O strategy** — mmap, io_uring, buffering, async, batching?
+  11. **Parallelism model** — threads, tasks, SIMD, pipeline vs data parallel?
+  12. **Pipeline reordering** — change the ORDER of operations. Filter before parse? Sort before group? Merge phases? Split phases? The sequence of stages matters as much as the stages themselves.
+  13. **Cross-language hot path** — JNI/FFI to C for the bottleneck, WASM, bytecode manipulation, runtime code generation. Change the execution engine for the critical 5%.
+  14. **Tool/library swap** — is there a faster parser, allocator, hash map, serializer available?
+  15. **Measurement methodology** — are you benchmarking correctly? Warmup, steady state, coordinated omission?
   Any layer with zero experiments is a blind spot. Your next experiment MUST come from an unexplored layer.
   Write the layer audit to autoresearch.md under "Dimension Audit."
 - **Reverse-engineer the experts.** When optimizing a well-studied problem, ask: "What production system already solves this?" (Flink, ClickHouse, LMAX Disruptor, etc.) Search for how they solved it — their architecture, data structures, and tricks. Not papers — actual implementations and design docs.
