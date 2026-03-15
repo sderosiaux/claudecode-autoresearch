@@ -108,6 +108,7 @@ Each iteration:
 
 ## Exploration Discipline
 
+- **Think before running.** Before each experiment, ask: "Could I know the answer without running this?" Purely syntactic changes (`void 0` vs `undefined`, `let` vs `var`, dot vs bracket notation) rarely matter — the compiler treats them identically. Don't waste experiments on things you can reason about.
 - **Profile every ~10 experiments.** Re-profile after major wins — the bottleneck shifts. Update "Profiling Notes" in autoresearch.md.
 - **Check metric noise.** Run the benchmark 3 times. If variance > improvement magnitude, increase iterations or use median of multiple runs.
 - **Drain the ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.

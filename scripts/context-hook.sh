@@ -54,6 +54,7 @@ if [[ $TOTAL -ge 5 ]]; then
 fi
 
 # Micro-opt streak: last 3 keeps all <5% improvement
+SMALL_COUNT=0
 if [[ $KEPT -ge 4 ]]; then
   # Get last 4 keep metrics to compute 3 deltas
   LAST4_KEEPS=$(grep '"keep"' "$JSONL" | tail -4 | jq -r '.metric' 2>/dev/null)
@@ -84,12 +85,17 @@ if [[ $KEPT -ge 4 ]]; then
 fi
 
 # Stale ideas: ideas file exists with untried ideas
+HIGH_IDEAS=0
 if [[ -f "$CWD/autoresearch.ideas.md" ]]; then
-  # Count lines under "High potential" that start with -
-  HIGH_IDEAS=$(sed -n '/^## High potential/,/^##/p' "$CWD/autoresearch.ideas.md" 2>/dev/null | grep -c '^-' || true)
-  if [[ $HIGH_IDEAS -gt 0 ]]; then
+  # Count lines under "High potential" or "High Priority" that start with -
+  HIGH_IDEAS=$(sed -n '/^## High [Pp]/,/^##/p' "$CWD/autoresearch.ideas.md" 2>/dev/null | grep -c '^-' || true)
+  if [[ $HIGH_IDEAS -gt 0 ]] && [[ $SMALL_COUNT -ge 3 ]] 2>/dev/null; then
+    # Micro-opt streak + untried ideas = hard directive
     WARNINGS="${WARNINGS}
-- UNTRIED IDEAS: You have ${HIGH_IDEAS} high-potential ideas in autoresearch.ideas.md. Try one before generating new micro-optimizations."
+- MANDATORY: You have ${HIGH_IDEAS} untried high-priority ideas AND you are in a micro-opt streak. STOP inventing small tweaks. Your next experiment MUST come from autoresearch.ideas.md."
+  elif [[ $HIGH_IDEAS -gt 0 ]]; then
+    WARNINGS="${WARNINGS}
+- UNTRIED IDEAS: You have ${HIGH_IDEAS} high-priority ideas in autoresearch.ideas.md. Try one before generating new micro-optimizations."
   fi
 fi
 
@@ -107,6 +113,7 @@ RULES:
 - Read autoresearch.md for session context. Use the plugin scripts.
 
 EXPLORATION:
+- Think before running. Could you know the answer without an experiment? Purely syntactic changes rarely matter — don't waste runs on them.
 - Measure before changing. Use the language's profiling/diagnostic tools to find where time or resources are actually spent.
 - Look at actual output and behavior, not just source code.
 - Try algorithmic and structural changes before micro-optimizations.
