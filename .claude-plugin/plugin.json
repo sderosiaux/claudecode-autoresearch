@@ -1,7 +1,7 @@
 {
   "name": "autoresearch",
   "description": "Autonomous experiment loop for Claude Code. Edit, benchmark, keep or discard, repeat forever.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": {
     "name": "sderosiaux"
   },

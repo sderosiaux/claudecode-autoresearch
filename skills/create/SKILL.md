@@ -15,7 +15,7 @@ All scripts are in the plugin. Reference them as:
 
 ## Setup Steps
 
-1. Ask (or infer from context): **Goal**, **Command**, **Metric** (+ direction), **Files in scope**, **Constraints**.
+1. Use `AskUserQuestion` to confirm: **Goal**, **Metric** (+ direction), **Files in scope**, **Constraints**. Do NOT infer constraints silently — ask the user what's off-limits. If they say "none" or don't specify constraints, write "none" in the constraints section. The environment (language version, runtime, OS) is always part of the optimization surface unless the user explicitly restricts it.
 2. Create branch: `git checkout -b autoresearch/<goal>-<date>`
 3. Read the source files in scope. Understand the workload deeply before writing anything.
 4. Write `autoresearch.md` (session doc) and `autoresearch.sh` (benchmark script). Commit both.
