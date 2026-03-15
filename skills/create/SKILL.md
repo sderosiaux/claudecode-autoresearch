@@ -106,6 +106,10 @@ Each iteration:
 7. Write promising deferred ideas to `autoresearch.ideas.md`
 8. Repeat
 
+## Performance Knowledge Base
+
+When optimizing performance (latency, throughput, memory, CPU), fetch techniques from https://github.com/sderosiaux/linux-perf-handbook — it covers Linux, kernel tuning, JVM internals, latency techniques, profiling tools, and more. Use it to inform experiment ideas and profiling strategy.
+
 ## Exploration Discipline
 
 Name the active strategy at each decision point. These are cognitive activators — naming the algorithm forces the specific thinking pattern, not generic reasoning.
