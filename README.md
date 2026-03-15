@@ -102,7 +102,7 @@ A fresh Claude session can resume from `autoresearch.md` + `autoresearch.jsonl` 
 
 ### Auto-resume
 
-When Claude stops (context limit, crash), the Stop hook checks for an active state file. If found: block the exit, inject a resume prompt, Claude continues. Up to 50 iterations (configurable), with a 30s cooldown between resumes and crash detection after 3 consecutive failures. `/claudecode-autoresearch:autoresearch-stop` disables it.
+When Claude stops (context limit, crash), the Stop hook blocks the exit and resumes a fresh session. The real limit is `maxExperiments` in your config (default 100) — the total number of experiments across all sessions. The Stop hook has a separate safety cap of 10 context resets, a 30s cooldown between resumes, and crash detection after 3 consecutive failures. `/claudecode-autoresearch:autoresearch-stop` disables it.
 
 ## Example domains
 

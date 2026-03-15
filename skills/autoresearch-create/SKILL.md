@@ -31,7 +31,7 @@ All scripts are in the plugin. Reference them as:
    ---
    session_id: "$SESSION_ID"
    iteration: 0
-   max_iterations: $ARGUMENTS_MAX_ITERATIONS_OR_50
+   max_iterations: 10
    cwd: "$(pwd)"
    started_at: "$(date -u +%Y-%m-%dT%H:%M:%S)"
    last_resume: 0

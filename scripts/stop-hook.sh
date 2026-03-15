@@ -67,9 +67,9 @@ if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
   exit 0
 fi
 
-MAX_ITERATIONS="${MAX_ITERATIONS:-50}"
+MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
 if [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
-  MAX_ITERATIONS=50
+  MAX_ITERATIONS=10
 fi
 
 # cwd check — skip if we're in the wrong project
