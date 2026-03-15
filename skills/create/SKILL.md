@@ -110,13 +110,15 @@ Each iteration:
 
 ## Performance Knowledge Base
 
-**Trigger:** At session start (before first experiment) AND when plateauing (4+ discards in last 5 experiments), you MUST fetch relevant handbook files for fresh ideas.
+**Trigger:** At session start (before first experiment) AND when plateauing (4+ discards in last 5 experiments), you MUST read relevant handbook files for fresh ideas.
 
-**How:** Use `WebFetch` on the raw GitHub URLs below. Read the file, extract applicable techniques, add promising ones to `autoresearch.ideas.md`.
+**How:** Clone once, then read files directly:
+```bash
+git clone https://github.com/sderosiaux/linux-perf-handbook.git /tmp/linux-perf-handbook 2>/dev/null || git -C /tmp/linux-perf-handbook pull -q
+```
+Then use the Read tool on `/tmp/linux-perf-handbook/<filename>`. Extract applicable techniques and add promising ones to `autoresearch.ideas.md`.
 
-**Base URL:** `https://raw.githubusercontent.com/sderosiaux/linux-perf-handbook/main/`
-
-**Which files to fetch** (pick by domain — read 2-3 most relevant):
+**Which files to read** (pick 2-3 most relevant to the optimization domain):
 
 | Domain | Files |
 |--------|-------|
@@ -134,7 +136,7 @@ Each iteration:
 | eBPF / tracing | `06-ebpf-tracing.md`, `17-ftrace-production.md` |
 | Off-CPU / blocking | `18-off-cpu-analysis.md` |
 
-**Example:** For a Java throughput benchmark, at session start fetch `10-java-jvm.md` and `05-performance-profiling.md`. When plateauing, fetch `13-latency-analysis.md` or `15-memory-subsystem.md` for orthogonal ideas.
+**Example:** For a Java throughput benchmark, at session start read `10-java-jvm.md` and `05-performance-profiling.md`. When plateauing, read `13-latency-analysis.md` or `15-memory-subsystem.md` for orthogonal ideas.
 
 ## Exploration Discipline
 
