@@ -37,9 +37,10 @@ All scripts are in the plugin. Reference them as:
    STATEOF
    ```
    **IMPORTANT:** The `session_id` value must match the current Claude Code session ID. Check for it in the environment or context.
-8. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
-9. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
-10. Start the main loop immediately. Follow the Loop Rules below.
+8. **Profile the workload** before any optimization. Use the language's profiling tools to understand where time/resources are actually spent. Record findings in autoresearch.md.
+9. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
+10. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
+11. Start the main loop immediately. Follow the Loop Rules below.
 
 ### autoresearch.md
 
@@ -68,6 +69,9 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 ## Constraints
 <Hard rules: tests must pass, no new deps, etc.>
 
+## Profiling Notes
+<Where time/resources are actually spent. Update periodically.>
+
 ## What's Been Tried
 <Update as experiments accumulate. Note key wins, dead ends, architectural insights.>
 ```
@@ -88,7 +92,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Simpler is better.** Removing code for equal perf = keep.
 - **Don't thrash.** Repeatedly reverting? Try something structurally different.
 - **Crashes:** fix if trivial, otherwise log and move on.
-- **Think longer when stuck.** Re-read source files, reason about what the CPU/system is doing.
+- **Think longer when stuck.** Re-read source files, reason about what the system is doing at runtime.
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
 
 Each iteration:
@@ -101,5 +105,13 @@ Each iteration:
 6. Update "What's Been Tried" in autoresearch.md periodically
 7. Write promising deferred ideas to `autoresearch.ideas.md`
 8. Repeat
+
+## Exploration Discipline
+
+- **Profile every ~10 experiments.** Re-profile after major wins — the bottleneck shifts. Update "Profiling Notes" in autoresearch.md.
+- **Check metric noise.** Run the benchmark 3 times. If variance > improvement magnitude, increase iterations or use median of multiple runs.
+- **Drain the ideas backlog.** Before inventing new micro-opts, try high-potential ideas from `autoresearch.ideas.md`.
+- **Bundle experiments.** Occasionally combine 2-3 small ideas in one experiment to test interaction effects.
+- **Escape local minima.** If your last 3 improvements were all <5%, you're in diminishing returns. Profile again or try a fundamentally different architecture.
 
 **NEVER STOP.** Keep going until interrupted.

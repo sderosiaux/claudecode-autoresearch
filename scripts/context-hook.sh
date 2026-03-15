@@ -5,7 +5,8 @@ set -uo pipefail
 #
 # When autoresearch.jsonl exists in the current working directory:
 # 1. Enforces loop continuation (DO NOT STOP)
-# 2. Injects exploration behaviors (language/domain agnostic)
+# 2. Detects anti-patterns (plateau, micro-opt streaks, stale ideas)
+# 3. Injects exploration behaviors (language/domain agnostic)
 
 HOOK_INPUT=$(cat)
 
@@ -39,13 +40,56 @@ if [[ -n "$MAX_EXPERIMENTS" ]] && [[ "$MAX_EXPERIMENTS" =~ ^[0-9]+$ ]] && [[ $TO
   exit 0
 fi
 
-# --- Detect plateau (4/5 recent discards) ---
-PLATEAU=""
-if [[ $DISCARDED -ge 5 ]]; then
+# --- Warnings (accumulated, shown together) ---
+WARNINGS=""
+
+# Plateau: 4/5 recent discards
+if [[ $TOTAL -ge 5 ]]; then
   LAST5=$(grep '"status"' "$JSONL" | tail -5 | jq -r '.status' 2>/dev/null)
   DISCARD_COUNT=$(echo "$LAST5" | grep -c 'discard' || true)
   if [[ "$DISCARD_COUNT" -ge 4 ]]; then
-    PLATEAU=" PLATEAU WARNING (${DISCARD_COUNT}/5 recent discards): Stop tweaking. Re-read the source files from scratch. Try a structurally different approach."
+    WARNINGS="${WARNINGS}
+- PLATEAU: ${DISCARD_COUNT}/5 recent discards. Stop tweaking. Re-read source files from scratch. Try a structurally different approach."
+  fi
+fi
+
+# Micro-opt streak: last 3 keeps all <5% improvement
+if [[ $KEPT -ge 4 ]]; then
+  # Get last 4 keep metrics to compute 3 deltas
+  LAST4_KEEPS=$(grep '"keep"' "$JSONL" | tail -4 | jq -r '.metric' 2>/dev/null)
+  if [[ $(echo "$LAST4_KEEPS" | wc -l) -ge 4 ]]; then
+    DIRECTION=$(echo "$CONFIG_LINE" | jq -r '.bestDirection // "lower"' 2>/dev/null)
+    SMALL_COUNT=0
+    PREV=""
+    while IFS= read -r m; do
+      if [[ -n "$PREV" ]]; then
+        if [[ "$DIRECTION" == "lower" ]]; then
+          PCT=$(echo "scale=1; ($PREV - $m) * 100 / $PREV" | bc 2>/dev/null) || PCT="0"
+        else
+          PCT=$(echo "scale=1; ($m - $PREV) * 100 / $PREV" | bc 2>/dev/null) || PCT="0"
+        fi
+        # Check if < 5%
+        IS_SMALL=$(echo "$PCT < 5" | bc 2>/dev/null) || IS_SMALL=0
+        if [[ "$IS_SMALL" -eq 1 ]]; then
+          SMALL_COUNT=$((SMALL_COUNT + 1))
+        fi
+      fi
+      PREV="$m"
+    done <<< "$LAST4_KEEPS"
+    if [[ $SMALL_COUNT -ge 3 ]]; then
+      WARNINGS="${WARNINGS}
+- MICRO-OPT STREAK: Last 3 improvements were all <5%. You are in diminishing returns. Profile the workload to find where time is actually spent, or try a fundamentally different architecture."
+    fi
+  fi
+fi
+
+# Stale ideas: ideas file exists with untried ideas
+if [[ -f "$CWD/autoresearch.ideas.md" ]]; then
+  # Count lines under "High potential" that start with -
+  HIGH_IDEAS=$(sed -n '/^## High potential/,/^##/p' "$CWD/autoresearch.ideas.md" 2>/dev/null | grep -c '^-' || true)
+  if [[ $HIGH_IDEAS -gt 0 ]]; then
+    WARNINGS="${WARNINGS}
+- UNTRIED IDEAS: You have ${HIGH_IDEAS} high-potential ideas in autoresearch.ideas.md. Try one before generating new micro-optimizations."
   fi
 fi
 
@@ -55,12 +99,7 @@ if [[ -x "$CWD/autoresearch.checks.sh" ]]; then
   CHECKS=" Backpressure checks active."
 fi
 
-IDEAS=""
-if [[ -f "$CWD/autoresearch.ideas.md" ]]; then
-  IDEAS=" Check autoresearch.ideas.md for queued ideas."
-fi
-
-ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${IDEAS}${PLATEAU}
+ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}
 
 RULES:
 - DO NOT STOP. DO NOT ASK \"should I continue?\". DO NOT PAUSE.
@@ -72,7 +111,8 @@ EXPLORATION:
 - Look at actual output and behavior, not just source code.
 - Try algorithmic and structural changes before micro-optimizations.
 - When stuck: re-read the source files completely, question your assumptions, try the opposite of what you've been doing.
-- Combine previous wins. Two small improvements may unlock a third.
-- Keep a mental model of what the system is doing at runtime. Think about what the CPU, memory, compiler, or runtime is actually doing with your code."
+- Combine previous wins — occasionally bundle 2-3 small ideas into one experiment to test synergies.
+- If your metric variance is larger than your improvements, increase iterations or add statistical analysis (multiple runs, median).
+- Keep a mental model of what the system is doing at runtime — what the CPU, memory, compiler, or runtime is actually doing with your code."
 
 jq -nc --arg ctx "$ENFORCE" '{additionalContext: $ctx}'
