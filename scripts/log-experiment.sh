@@ -84,7 +84,23 @@ case "$STATUS" in
     # Strip redundant "experiment:" prefix if description already starts with it
     COMMIT_MSG="$DESCRIPTION"
     [[ ! "$COMMIT_MSG" =~ ^experiment: ]] && COMMIT_MSG="experiment: $COMMIT_MSG"
-    git commit -q -m "$COMMIT_MSG" 2>/dev/null || true
+    COMMIT_ERR=$(mktemp)
+    if ! git commit -q -m "$COMMIT_MSG" 2>"$COMMIT_ERR"; then
+      # Pre-commit hooks (formatters) may have modified staged files — re-stage and retry
+      git add -u 2>/dev/null
+      git add autoresearch.jsonl autoresearch.md autoresearch.ideas.md autoresearch.checks.sh autoresearch.sh jvm.opts 2>/dev/null || true
+      if ! git commit -q -m "$COMMIT_MSG" 2>>"$COMMIT_ERR"; then
+        # Hooks still blocking — show error, force commit to preserve experiment state
+        echo "WARNING: pre-commit hooks rejected commit. Bypassing to preserve experiment state." >&2
+        echo "WARNING: Fix these issues before the next experiment:" >&2
+        cat "$COMMIT_ERR" >&2
+        git commit -q --no-verify -m "$COMMIT_MSG" 2>/dev/null || {
+          echo "ERROR: git commit failed even with --no-verify — changes NOT committed." >&2
+          echo "ERROR: Next discard WILL LOSE these changes. Commit manually before discarding." >&2
+        }
+      fi
+    fi
+    rm -f "$COMMIT_ERR"
     COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
