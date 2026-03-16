@@ -20,11 +20,16 @@ All scripts are in the plugin. Reference them as:
 3. Read the source files in scope. Understand the workload deeply before writing anything.
 4. Write `autoresearch.md` (session doc) and `autoresearch.sh` (benchmark script). Commit both.
 5. If constraints require correctness checks (tests must pass, types must check), write `autoresearch.checks.sh`. Commit it.
-6. Write the config line to `autoresearch.jsonl`:
+6. Install the pre-commit hook to enforce file structure:
+   ```bash
+   cp "${CLAUDE_PLUGIN_ROOT}/scripts/pre-commit-hook.sh" .git/hooks/pre-commit
+   ```
+   This validates autoresearch.jsonl entries, autoresearch.md sections, script executability, and ideas.md structure on every commit. If you break the structure, the commit is rejected.
+7. Write the config line to `autoresearch.jsonl`:
    ```bash
    echo '{"type":"config","name":"<name>","metricName":"<metric>","metricUnit":"<unit>","bestDirection":"<lower|higher>","maxExperiments":100}' > autoresearch.jsonl
    ```
-7. Create the auto-resume state file:
+8. Create the auto-resume state file:
    ```bash
    mkdir -p ~/.claude/states/autoresearch
    cat > ~/.claude/states/autoresearch/$(openssl rand -hex 4).md << 'STATEOF'
@@ -37,10 +42,10 @@ All scripts are in the plugin. Reference them as:
    STATEOF
    ```
    **IMPORTANT:** The `session_id` value must match the current Claude Code session ID. Check for it in the environment or context.
-8. **Profile the workload** before any optimization. Use the language's profiling tools to understand where time/resources are actually spent. Record findings in autoresearch.md.
-9. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
-10. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
-11. Start the main loop immediately. Follow the Loop Rules below.
+9. **Profile the workload** before any optimization. Use the language's profiling tools to understand where time/resources are actually spent. Record findings in autoresearch.md.
+10. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
+11. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
+12. Start the main loop immediately. Follow the Loop Rules below.
 
 ### autoresearch.md
 
