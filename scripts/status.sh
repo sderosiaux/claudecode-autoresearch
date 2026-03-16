@@ -73,13 +73,47 @@ echo "Runs: $TOTAL | $KEPT kept | $DISCARDED discarded | $CRASHED crashed | $CHE
 echo "Baseline: ${BASELINE}${METRIC_UNIT} ($METRIC_NAME)"
 [[ -n "$BEST" ]] && echo "Best:     ${BEST}${METRIC_UNIT}${DELTA}"
 
+# Keep rate trends
+echo ""
+ALL_STATUSES=$(echo "$RESULTS" | grep '"status"' | jq -r '.status' | grep -v '^$')
+if [[ $TOTAL -ge 10 ]]; then
+  LAST10_KEPT=$(echo "$ALL_STATUSES" | tail -10 | grep -c '^keep$' || true)
+  echo "Keep rate (last 10): ${LAST10_KEPT}/10"
+fi
+if [[ $TOTAL -ge 20 ]]; then
+  LAST20_KEPT=$(echo "$ALL_STATUSES" | tail -20 | grep -c '^keep$' || true)
+  echo "Keep rate (last 20): ${LAST20_KEPT}/20"
+fi
+
+# Consecutive non-keeps at tail
+STREAK=0
+while IFS= read -r s; do
+  [[ -z "$s" ]] && continue
+  if [[ "$s" != "keep" ]]; then
+    STREAK=$((STREAK + 1))
+  else
+    break
+  fi
+done < <(echo "$ALL_STATUSES" | tac)
+[[ $STREAK -ge 5 ]] && echo "Consecutive non-keeps at tail: $STREAK"
+
+# Improvement curve — show the kept milestones
+KEEP_COUNT=$(echo "$RESULTS" | grep -c '"keep"' || echo 0)
+if [[ $KEEP_COUNT -ge 3 ]]; then
+  echo ""
+  echo "Improvement curve:"
+  echo "$RESULTS" | grep '"keep"' | jq -r '[.n // "", .metric, .description] | @tsv' | \
+    awk -F'\t' 'NR==1{first=$2} {printf "  #%-4s %12s  (%.0fx)  %s\n", $1, $2, ($2/first), $3}'
+fi
+
 # Last 5 results
 echo ""
 echo "Recent:"
 echo "$RESULTS" | grep '"status"' | tail -5 | while IFS= read -r line; do
+  N=$(echo "$line" | jq -r '.n // ""')
   S=$(echo "$line" | jq -r '.status')
   M=$(echo "$line" | jq -r '.metric')
   D=$(echo "$line" | jq -r '.description')
   C=$(echo "$line" | jq -r '.commit')
-  printf "  %-15s %s%-4s %s %s\n" "$S" "$M" "$METRIC_UNIT" "$C" "$D"
+  printf "  #%-4s %-15s %s%-4s %s %s\n" "$N" "$S" "$M" "$METRIC_UNIT" "$C" "$D"
 done

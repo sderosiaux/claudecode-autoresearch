@@ -84,6 +84,21 @@ if [[ $KEPT -ge 4 ]]; then
   fi
 fi
 
+# Convergence: 15+ consecutive non-keeps = likely converged
+if [[ $TOTAL -ge 15 ]]; then
+  TAIL_DISCARDS=0
+  while IFS= read -r s; do
+    case "$s" in
+      keep) break ;;
+      *) TAIL_DISCARDS=$((TAIL_DISCARDS + 1)) ;;
+    esac
+  done < <(grep '"status"' "$JSONL" | jq -r '.status' 2>/dev/null | tac)
+  if [[ $TAIL_DISCARDS -ge 15 ]]; then
+    WARNINGS="${WARNINGS}
+- CONVERGENCE: ${TAIL_DISCARDS} consecutive non-keeps. You are likely at the local optimum. Options: (1) try a RADICALLY different architecture or layer, (2) run /autoresearch:stop if satisfied, (3) read the performance handbook for orthogonal ideas."
+  fi
+fi
+
 # Stale ideas: ideas file exists with untried ideas
 HIGH_IDEAS=0
 if [[ -f "$CWD/autoresearch.ideas.md" ]]; then

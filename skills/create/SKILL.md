@@ -80,7 +80,7 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 
 Bash script (`set -euo pipefail`) that: pre-checks fast (<1s), runs the benchmark, outputs `METRIC name=number` lines. Keep it fast.
 
-**The benchmark scripts are NOT immutable.** You can and should modify them to support new optimization dimensions. Examples: add a `jvm.opts` file that the script reads for JVM flags, add environment variable support, change compiler flags, add profiling hooks. If a dimension expansion audit reveals "runtime flags" as a blind spot, extend the script to support it — don't assume the scripts are off-limits.
+**The benchmark scripts are IN SCOPE — modify them freely.** You MUST extend them when a new optimization dimension requires it. Examples: create a `jvm.opts` file that the script reads for JVM flags, add `--add-modules` for Vector API, add environment variable support, change compiler flags, add profiling hooks. If a dimension expansion audit reveals "runtime flags" or "build pipeline" as a blind spot, your FIRST action is to extend the script to support it. Do NOT skip a promising dimension because "the script doesn't support it" — make the script support it, then run the experiment. During setup, consider creating a `jvm.opts` / `compiler.opts` file pattern upfront so flag experiments are frictionless.
 
 ### autoresearch.checks.sh (optional)
 
@@ -91,6 +91,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 **LOOP FOREVER.** Never ask "should I continue?" — the user expects autonomous work.
 
 - **Primary metric is king.** Improved -> `keep`. Worse/equal -> `discard`.
+- **Validate small gains.** When delta < 5%, re-run with `runs 5` to confirm. If stddev > delta, the gain is noise — `discard`. Don't pollute the kept history with phantom improvements.
 - **Simpler is better.** Removing code for equal perf = keep.
 - **Don't thrash.** Repeatedly reverting? Try something structurally different.
 - **Crashes:** fix if trivial, otherwise log and move on.
@@ -109,7 +110,20 @@ Each iteration:
    This script handles EVERYTHING: JSONL logging, git commit on keep, git reset on discard/crash.
    **NEVER** manually append to autoresearch.jsonl. **NEVER** manually revert code. **NEVER** manually git commit experiments. The script does all of this.
 6. Update "What's Been Tried" in autoresearch.md periodically
-7. Write promising deferred ideas to `autoresearch.ideas.md`
+7. Write promising deferred ideas to `autoresearch.ideas.md`. Use this structure:
+   ```markdown
+   # Deferred Ideas
+   ## High Priority
+   - idea 1
+   - idea 2
+   ## Medium Priority
+   - idea 3
+   ## Tried and Kept (do not retry — already applied)
+   - description (+X%)
+   ## Tried and Failed (do not retry)
+   - description (-X%): reason
+   ```
+   Move ideas between sections as you try them. This prevents re-trying failed approaches after resume.
 8. Repeat
 
 ## Performance Knowledge Base
@@ -146,6 +160,7 @@ Then use the Read tool on `/tmp/linux-perf-handbook/<filename>`. Extract applica
 
 Name the active strategy at each decision point. These are cognitive activators — naming the algorithm forces the specific thinking pattern, not generic reasoning.
 
+- **Breadth-first layer sweep (first 20 experiments).** Before experiment 20, you MUST have tried at least one experiment in EACH of these layers: I/O strategy, runtime/compiler flags, data representation, algorithm class, parallelism model. Big wins hide in layers you haven't touched — micro-optimizing parsing while ignoring mmap or JIT flags is a common trap. Check the dimension list and force yourself into unexplored territory early.
 - **Think before running.** Before each experiment: "Could I know the answer without running this?" Syntactic changes the compiler treats identically are not experiments.
 - **Sensitivity screening.** Profile every ~10 experiments. Rank factors by impact. Focus experiments on the top 2-3 dimensions. Explicitly ignore factors that don't move the needle. Update "Profiling Notes" in autoresearch.md.
 - **Surrogate landscape.** Every ~10 experiments, build a mental model: "Based on N data points, the quality gradient points toward X. The most promising unexplored region is Y. The exhausted regions are Z." Write this model to autoresearch.md under "Landscape Model."

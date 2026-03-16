@@ -9,6 +9,7 @@ set -uo pipefail
 #   metric:       primary metric value (number)
 #   description:  short description of what was tried
 #   metrics_json: optional JSON object of secondary metrics, e.g. '{"compile_us":4200}'
+#                 If omitted, auto-extracts from last run-experiment METRIC lines.
 #
 # Behavior:
 #   keep           -> result appended to autoresearch.jsonl (commit already done by Claude)
@@ -19,9 +20,20 @@ set -uo pipefail
 STATUS="${1:?Usage: log-experiment.sh <status> <metric> <description> [metrics_json]}"
 METRIC="${2:?Missing metric value}"
 DESCRIPTION="${3:?Missing description}"
-METRICS_JSON="${4:-{}}"
+METRICS_JSON="${4:-}"
 
 JSONL_FILE="autoresearch.jsonl"
+
+# Auto-extract secondary metrics from last run-experiment output if not provided
+if [[ -z "$METRICS_JSON" ]]; then
+  LAST_OUTPUT=$(find /tmp -maxdepth 1 -name 'autoresearch-*-output*' -newer "$JSONL_FILE" 2>/dev/null | head -1)
+  if [[ -n "$LAST_OUTPUT" ]] && [[ -f "$LAST_OUTPUT" ]]; then
+    METRICS_JSON=$(grep '^METRIC ' "$LAST_OUTPUT" 2>/dev/null | sed 's/^METRIC //' | awk -F= '{printf "\"%s\":%s,", $1, $2}' | sed 's/,$//' | sed 's/^/{/;s/$/}/')
+    [[ "$METRICS_JSON" == "{}" ]] && METRICS_JSON="{}"
+  else
+    METRICS_JSON="{}"
+  fi
+fi
 
 # Validate status
 case "$STATUS" in
@@ -49,22 +61,30 @@ TIMESTAMP=$(date +%s)
 
 COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
 
+# Experiment number = count of existing experiments + 1
+EXP_NUM=$(( $(grep -c '"status"' "$JSONL_FILE" 2>/dev/null || echo 0) + 1 ))
+
 ENTRY=$(jq -nc \
+  --argjson n "$EXP_NUM" \
   --arg commit "$COMMIT" \
   --argjson metric "$METRIC" \
   --arg status "$STATUS" \
   --arg description "$DESCRIPTION" \
   --argjson metrics "$METRICS_JSON" \
   --argjson timestamp "$TIMESTAMP" \
-  '{commit: $commit, metric: $metric, status: $status, description: $description, metrics: $metrics, timestamp: $timestamp}')
+  '{n: $n, commit: $commit, metric: $metric, status: $status, description: $description, metrics: $metrics, timestamp: $timestamp}')
 
 case "$STATUS" in
   keep)
     # Append entry first, then commit everything
     echo "$ENTRY" >> "$JSONL_FILE"
     rm -f .autoresearch-checkpoint
-    git add -A 2>/dev/null
-    git commit -q -m "experiment: $DESCRIPTION" 2>/dev/null || true
+    git add -u 2>/dev/null
+    git add autoresearch.jsonl autoresearch.md autoresearch.ideas.md autoresearch.checks.sh autoresearch.sh jvm.opts 2>/dev/null || true
+    # Strip redundant "experiment:" prefix if description already starts with it
+    COMMIT_MSG="$DESCRIPTION"
+    [[ ! "$COMMIT_MSG" =~ ^experiment: ]] && COMMIT_MSG="experiment: $COMMIT_MSG"
+    git commit -q -m "$COMMIT_MSG" 2>/dev/null || true
     COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
