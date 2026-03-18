@@ -115,21 +115,29 @@ fi
 # Tabu enforcer: extract themes from recent discards to prevent repeating failures
 if [[ $DISCARDED -ge 5 ]]; then
   RECENT_DISCARDS=$(grep '"discard"' "$JSONL" | tail -20 | jq -r '.description // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
-  TABU_THEMES=""
-  for theme in prefetch madvise map_populate mlock vectoriz "inline asm" cmov branchless \
-               pgo lto funroll "cache.line" "cache.align" aligned noinline restrict \
-               swar avx simd "insertion sort" "counting sort" "selection network" \
-               "stack.alloc" "buffer.size" "huge.page" "cpu.pin" "branch.hint" \
-               "builtin_expect" "code.layout" "-Os" "-O2" "clang"; do
-    PATTERN=$(echo "$theme" | sed 's/\./[_ ]/g')
-    COUNT=$(echo "$RECENT_DISCARDS" | grep -c "$PATTERN" 2>/dev/null || true)
-    if [[ $COUNT -ge 2 ]]; then
-      TABU_THEMES="${TABU_THEMES} ${theme}(${COUNT}x)"
-    fi
-  done
+  # Extract recurring 1-2 word phrases from discard descriptions (domain-agnostic)
+  # Tokenize, count unigrams + bigrams, surface any appearing 3+ times
+  TABU_THEMES=$(echo "$RECENT_DISCARDS" | \
+    tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/ /g' | tr -s ' ' | \
+    awk '{
+      for(i=1;i<=NF;i++) {
+        w=$i
+        if(length(w)<3) continue
+        if(w~/^(the|and|for|with|from|that|this|not|but|was|are|has|had|use|try|also|into|more|less|than|each|per|all|add|new|set|get|run|did|does|using|added|tried|instead|before|after|because|without|which|when|where|only|just|same|still|like|make|made|move|test|used)$/) continue
+        uni[w]++
+        if(i<NF) {
+          w2=$(i+1)
+          if(length(w2)>=3) bigram[w" "w2]++
+        }
+      }
+    }
+    END {
+      for(b in bigram) if(bigram[b]>=2) printf "%s(%dx) ",b,bigram[b]
+      for(u in uni) if(uni[u]>=3) printf "%s(%dx) ",u,uni[u]
+    }')
   if [[ -n "$TABU_THEMES" ]]; then
     WARNINGS="${WARNINGS}
-- TABU (already failed recently):${TABU_THEMES}. Do NOT try variations of these unless you have a fundamentally new reason backed by fresh profiling data."
+- TABU (recurring in recent discards): ${TABU_THEMES}— these themes keep failing. Do NOT try variations unless you have a fundamentally new reason backed by fresh profiling data."
   fi
 fi
 
