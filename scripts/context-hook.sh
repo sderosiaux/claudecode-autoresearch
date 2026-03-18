@@ -5,8 +5,11 @@ set -uo pipefail
 #
 # When autoresearch.jsonl exists in the current working directory:
 # 1. Enforces loop continuation (DO NOT STOP)
-# 2. Detects anti-patterns (plateau, micro-opt streaks, stale ideas)
-# 3. Injects exploration behaviors (language/domain agnostic)
+# 2. Detects anti-patterns (wall, plateau, micro-opt streaks, stale ideas)
+# 3. Builds tabu list from recent discard themes
+# 4. Reminds to profile periodically
+# 5. Tracks unchecked ideas in autoresearch.ideas.md
+# 6. Injects exploration behaviors (language/domain agnostic)
 
 HOOK_INPUT=$(cat)
 
@@ -43,8 +46,18 @@ fi
 # --- Warnings (accumulated, shown together) ---
 WARNINGS=""
 
-# Plateau: 4/5 recent discards
-if [[ $TOTAL -ge 5 ]]; then
+# Wall: 10+ consecutive discards = hard wall, need radical change
+if [[ $TOTAL -ge 10 ]]; then
+  LAST10=$(grep '"status"' "$JSONL" | tail -10 | jq -r '.status' 2>/dev/null)
+  WALL_DISCARDS=$(echo "$LAST10" | grep -c 'discard' || true)
+  if [[ "$WALL_DISCARDS" -ge 10 ]]; then
+    WARNINGS="${WARNINGS}
+- WALL HIT: 10 consecutive discards. You MUST do one of: (1) profile the workload and show NEW data you haven't seen before, (2) change compiler/runtime/language, (3) reformulate the problem entirely (different algorithm, different data structure), (4) try ideas from autoresearch.ideas.md. Do NOT try another micro-variation of something that already failed."
+  fi
+fi
+
+# Plateau: 4/5 recent discards (skip if wall already triggered)
+if [[ $TOTAL -ge 5 ]] && [[ -z "$WARNINGS" ]]; then
   LAST5=$(grep '"status"' "$JSONL" | tail -5 | jq -r '.status' 2>/dev/null)
   DISCARD_COUNT=$(echo "$LAST5" | grep -c 'discard' || true)
   if [[ "$DISCARD_COUNT" -ge 4 ]]; then
@@ -99,18 +112,64 @@ if [[ $TOTAL -ge 15 ]]; then
   fi
 fi
 
+# Tabu enforcer: extract themes from recent discards to prevent repeating failures
+if [[ $DISCARDED -ge 5 ]]; then
+  RECENT_DISCARDS=$(grep '"discard"' "$JSONL" | tail -20 | jq -r '.description // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  TABU_THEMES=""
+  for theme in prefetch madvise map_populate mlock vectoriz "inline asm" cmov branchless \
+               pgo lto funroll "cache.line" "cache.align" aligned noinline restrict \
+               swar avx simd "insertion sort" "counting sort" "selection network" \
+               "stack.alloc" "buffer.size" "huge.page" "cpu.pin" "branch.hint" \
+               "builtin_expect" "code.layout" "-Os" "-O2" "clang"; do
+    PATTERN=$(echo "$theme" | sed 's/\./[_ ]/g')
+    COUNT=$(echo "$RECENT_DISCARDS" | grep -c "$PATTERN" 2>/dev/null || true)
+    if [[ $COUNT -ge 2 ]]; then
+      TABU_THEMES="${TABU_THEMES} ${theme}(${COUNT}x)"
+    fi
+  done
+  if [[ -n "$TABU_THEMES" ]]; then
+    WARNINGS="${WARNINGS}
+- TABU (already failed recently):${TABU_THEMES}. Do NOT try variations of these unless you have a fundamentally new reason backed by fresh profiling data."
+  fi
+fi
+
+# Profiling reminder: every ~15 experiments since last profiling mention
+if [[ $TOTAL -ge 10 ]]; then
+  LAST_PROFILE_IDX=$(grep -n '"status"' "$JSONL" | tail -"$TOTAL" | grep -in 'profil' | tail -1 | cut -d: -f1)
+  if [[ -z "$LAST_PROFILE_IDX" ]]; then
+    LAST_PROFILE_IDX=0
+  fi
+  SINCE_PROFILE=$((TOTAL - LAST_PROFILE_IDX))
+  if [[ $SINCE_PROFILE -ge 15 ]]; then
+    WARNINGS="${WARNINGS}
+- PROFILING DUE: Last profiling was ${SINCE_PROFILE} experiments ago. Profile the workload NOW (perf stat, flamegraph, phase timing, etc.) and update Profiling Notes in autoresearch.md before the next experiment. Data-driven beats guessing."
+  fi
+fi
+
 # Stale ideas: ideas file exists with untried ideas
-HIGH_IDEAS=0
+UNCHECKED_IDEAS=0
 if [[ -f "$CWD/autoresearch.ideas.md" ]]; then
-  # Count lines under "High potential" or "High Priority" that start with -
-  HIGH_IDEAS=$(sed -n '/^## High [Pp]/,/^##/p' "$CWD/autoresearch.ideas.md" 2>/dev/null | grep -c '^-' || true)
-  if [[ $HIGH_IDEAS -gt 0 ]] && [[ $SMALL_COUNT -ge 3 ]] 2>/dev/null; then
+  # Count unchecked checkboxes: - [ ] (preferred format)
+  UNCHECKED_IDEAS=$(grep -c '^\s*- \[ \]' "$CWD/autoresearch.ideas.md" 2>/dev/null || true)
+
+  # Fallback: count lines under "High potential" or "High Priority" starting with -
+  if [[ $UNCHECKED_IDEAS -eq 0 ]]; then
+    UNCHECKED_IDEAS=$(sed -n '/^## High [Pp]/,/^##/p' "$CWD/autoresearch.ideas.md" 2>/dev/null | grep -c '^-' || true)
+  fi
+
+  if [[ $UNCHECKED_IDEAS -gt 0 ]] && [[ $SMALL_COUNT -ge 3 ]] 2>/dev/null; then
     # Micro-opt streak + untried ideas = hard directive
     WARNINGS="${WARNINGS}
-- MANDATORY: You have ${HIGH_IDEAS} untried high-priority ideas AND you are in a micro-opt streak. STOP inventing small tweaks. Your next experiment MUST come from autoresearch.ideas.md."
-  elif [[ $HIGH_IDEAS -gt 0 ]]; then
-    WARNINGS="${WARNINGS}
-- UNTRIED IDEAS: You have ${HIGH_IDEAS} high-priority ideas in autoresearch.ideas.md. Try one before generating new micro-optimizations."
+- MANDATORY: You have ${UNCHECKED_IDEAS} untried ideas AND you are in a micro-opt streak. STOP inventing small tweaks. Your next experiment MUST come from autoresearch.ideas.md. Mark tried ideas with [x]."
+  elif [[ $UNCHECKED_IDEAS -gt 3 ]] && [[ $KEPT -gt 0 ]]; then
+    KEEP_RATE=$((100 * KEPT / TOTAL))
+    if [[ $KEEP_RATE -lt 15 ]]; then
+      WARNINGS="${WARNINGS}
+- LOW KEEP RATE (${KEEP_RATE}%) + ${UNCHECKED_IDEAS} UNTRIED IDEAS: Your hit rate is low. Try ideas from autoresearch.ideas.md before inventing new ones. Mark tried ideas with [x]."
+    elif [[ $UNCHECKED_IDEAS -gt 0 ]]; then
+      WARNINGS="${WARNINGS}
+- UNTRIED IDEAS: ${UNCHECKED_IDEAS} unchecked ideas in autoresearch.ideas.md. Consider trying one. Mark tried ideas with [x]."
+    fi
   fi
 fi
 

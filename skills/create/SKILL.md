@@ -115,18 +115,18 @@ Each iteration:
    This script handles EVERYTHING: JSONL logging, git commit on keep, git reset on discard/crash.
    **NEVER** manually append to autoresearch.jsonl. **NEVER** manually revert code. **NEVER** manually git commit experiments. The script does all of this.
 6. Update "What's Been Tried" in autoresearch.md periodically
-7. Write promising deferred ideas to `autoresearch.ideas.md`. Use this structure:
+7. Write promising deferred ideas to `autoresearch.ideas.md` using checkbox format. The context hook counts `- [ ]` items and nudges you to try them when keep rate is low. Use this structure:
    ```markdown
    # Deferred Ideas
    ## High Priority
-   - idea 1
-   - idea 2
+   - [ ] idea 1
+   - [ ] idea 2
    ## Medium Priority
-   - idea 3
+   - [ ] idea 3
    ## Tried and Kept (do not retry — already applied)
-   - description (+X%)
+   - [x] description (+X%)
    ## Tried and Failed (do not retry)
-   - description (-X%): reason
+   - [x] description (-X%): reason
    ```
    Move ideas between sections as you try them. This prevents re-trying failed approaches after resume.
 8. Repeat
