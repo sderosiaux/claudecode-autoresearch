@@ -112,32 +112,17 @@ if [[ $TOTAL -ge 15 ]]; then
   fi
 fi
 
-# Tabu enforcer: extract themes from recent discards to prevent repeating failures
+# Tabu: list last 10 discards so the LLM can spot patterns itself
 if [[ $DISCARDED -ge 5 ]]; then
-  RECENT_DISCARDS=$(grep '"discard"' "$JSONL" | tail -20 | jq -r '.description // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
-  # Extract recurring 1-2 word phrases from discard descriptions (domain-agnostic)
-  # Tokenize, count unigrams + bigrams, surface any appearing 3+ times
-  TABU_THEMES=$(echo "$RECENT_DISCARDS" | \
-    tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/ /g' | tr -s ' ' | \
-    awk '{
-      for(i=1;i<=NF;i++) {
-        w=$i
-        if(length(w)<3) continue
-        if(w~/^(the|and|for|with|from|that|this|not|but|was|are|has|had|use|try|also|into|more|less|than|each|per|all|add|new|set|get|run|did|does|using|added|tried|instead|before|after|because|without|which|when|where|only|just|same|still|like|make|made|move|test|used)$/) continue
-        uni[w]++
-        if(i<NF) {
-          w2=$(i+1)
-          if(length(w2)>=3) bigram[w" "w2]++
-        }
-      }
-    }
-    END {
-      for(b in bigram) if(bigram[b]>=2) printf "%s(%dx) ",b,bigram[b]
-      for(u in uni) if(uni[u]>=3) printf "%s(%dx) ",u,uni[u]
-    }')
-  if [[ -n "$TABU_THEMES" ]]; then
+  RECENT_DISCARDS=$(grep '"discard"' "$JSONL" | tail -10 | jq -r '.description // empty' 2>/dev/null)
+  if [[ -n "$RECENT_DISCARDS" ]]; then
+    TABU_LIST=""
+    while IFS= read -r desc; do
+      [[ -n "$desc" ]] && TABU_LIST="${TABU_LIST}  - ${desc}"$'\n'
+    done <<< "$RECENT_DISCARDS"
     WARNINGS="${WARNINGS}
-- TABU (recurring in recent discards): ${TABU_THEMES}— these themes keep failing. Do NOT try variations unless you have a fundamentally new reason backed by fresh profiling data."
+- RECENT DISCARDS (do NOT repeat these patterns):
+${TABU_LIST}  Check autoresearch.md 'What's Been Tried' for the full history before choosing your next experiment."
   fi
 fi
 
