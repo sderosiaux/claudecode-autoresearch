@@ -104,6 +104,10 @@ A fresh Claude session can resume from `autoresearch.md` + `autoresearch.jsonl` 
 
 When Claude stops (context limit, crash), the Stop hook blocks the exit and resumes a fresh session. The loop ends when `maxExperiments` is reached (default 100, set in `autoresearch.jsonl` config). Safety: 30s cooldown between resumes, crash detection after 3 consecutive failures. `/autoresearch:stop` disables it.
 
+## Real-world result
+
+**[Streaming Aggregation: 57K to 48M ev/s (831x)](https://github.com/sderosiaux/autoresearch-java-streaming-aggregation-bench)** — A streaming window aggregation engine optimized across 395 experiments in two sessions (Java + C). Every commit is an experiment. The commit messages document the technique, measured throughput, and delta from previous best.
+
 ## Example domains
 
 | Domain | Metric | Command |
@@ -113,6 +117,7 @@ When Claude stops (context limit, crash), the Stop hook blocks the exit and resu
 | Build speed | seconds (lower) | `pnpm build` |
 | Training loss | val_bpb (lower) | `uv run train.py` |
 | Lighthouse | perf score (higher) | `lighthouse http://localhost:3000 --output=json` |
+| Throughput | ev/s (higher) | `make && ./benchmark` |
 
 ## Try it
 
