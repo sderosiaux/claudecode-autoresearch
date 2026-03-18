@@ -40,7 +40,7 @@ CHECKS_FILE="$PROJECT_DIR/autoresearch.checks.sh"
 # --- Check max experiments cap ---
 if [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
   MAX_EXP=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
-  TOTAL_EXP=$(grep -c '"status"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null || echo 0)
+  TOTAL_EXP=$(grep -c '"status"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null) || TOTAL_EXP=0
   if [[ -n "$MAX_EXP" ]] && [[ "$MAX_EXP" =~ ^[0-9]+$ ]] && [[ $TOTAL_EXP -ge $MAX_EXP ]]; then
     echo "AUTORESEARCH_LIMIT_REACHED=true"
     echo "Max experiments reached ($MAX_EXP). Stop the loop." >&2

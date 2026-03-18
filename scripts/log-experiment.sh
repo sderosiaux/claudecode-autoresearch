@@ -62,7 +62,8 @@ TIMESTAMP=$(date +%s)
 COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
 
 # Experiment number = count of existing experiments + 1
-EXP_NUM=$(( $(grep -c '"status"' "$JSONL_FILE" 2>/dev/null || echo 0) + 1 ))
+EXP_NUM=$(grep -c '"status"' "$JSONL_FILE" 2>/dev/null) || EXP_NUM=0
+EXP_NUM=$(( EXP_NUM + 1 ))
 
 ENTRY=$(jq -nc \
   --argjson n "$EXP_NUM" \
@@ -129,6 +130,6 @@ case "$STATUS" in
 esac
 
 # Print summary from JSONL
-TOTAL=$(grep -c '"status"' "$JSONL_FILE" 2>/dev/null || echo 0)
-KEPT=$(grep -c '"keep"' "$JSONL_FILE" 2>/dev/null || echo 0)
+TOTAL=$(grep -c '"status"' "$JSONL_FILE" 2>/dev/null) || TOTAL=0
+KEPT=$(grep -c '"keep"' "$JSONL_FILE" 2>/dev/null) || KEPT=0
 echo "Total runs: $TOTAL | Kept: $KEPT"
