@@ -62,7 +62,11 @@ if [[ $TOTAL -ge 5 ]] && [[ -z "$WARNINGS" ]]; then
   DISCARD_COUNT=$(echo "$LAST5" | grep -c 'discard' || true)
   if [[ "$DISCARD_COUNT" -ge 4 ]]; then
     WARNINGS="${WARNINGS}
-- PLATEAU: ${DISCARD_COUNT}/5 recent discards. Stop tweaking. Re-read source files from scratch. Try a structurally different approach."
+- PLATEAU: ${DISCARD_COUNT}/5 recent discards. MANDATORY ACTIONS:
+  1. Re-profile the workload NOW — the bottleneck may have shifted after previous optimizations.
+  2. Update the Problem Profile and Decision Tree in autoresearch.md.
+  3. Run: mdvault search \"autoresearch technique\" --top-k 10 — check past sessions for techniques you haven't tried.
+  4. Consult the Decision Tree: pick a technique from a DIFFERENT bottleneck category than your last attempts."
   fi
 fi
 

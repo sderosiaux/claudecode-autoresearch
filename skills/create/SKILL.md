@@ -42,7 +42,21 @@ All scripts are in the plugin. Reference them as:
    STATEOF
    ```
    **IMPORTANT:** The `session_id` value must match the current Claude Code session ID. Check for it in the environment or context.
-9. **Profile the workload** before any optimization. Use the language's profiling tools to understand where time/resources are actually spent. Record findings in autoresearch.md.
+9. **Profile & Classify** before any optimization.
+   a. Profile the workload with appropriate tools (perf, profiler, flamegraph, time breakdown, GC logs, iostat, strace — whatever fits the stack).
+   b. Classify the bottleneck into one or more categories:
+      - **CPU-compute**: hot loop, algorithmic complexity, math-heavy
+      - **CPU-branch**: mispredictions, polymorphic dispatch, megamorphic calls
+      - **Memory-bandwidth**: large working set, cache misses, random access
+      - **Memory-allocation**: GC pressure, fragmentation, object churn
+      - **I/O-read**: disk, network input, deserialization
+      - **I/O-write**: disk, network output, serialization
+      - **Concurrency**: lock contention, false sharing, thread coordination
+      - **Startup**: class loading, JIT warmup, initialization, cold paths
+      - **External**: database, API calls, subprocess, network round-trips
+   c. Write the **Problem Profile** section in autoresearch.md (see template below).
+   d. Build a **Decision Tree** mapping each identified bottleneck to technique families to try first, second, and what to avoid.
+   e. **Consult past experience**: run `mdvault search "autoresearch technique <bottleneck-type>" --top-k 10` for each identified bottleneck. Also run `mdvault search "autoresearch anti-pattern <bottleneck-type>" --top-k 5` to avoid known dead ends. Add relevant findings to `autoresearch.ideas.md` as high-priority candidates.
 10. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
 11. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
 12. Start the main loop immediately. Follow the Loop Rules below.
@@ -77,6 +91,26 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 ## Profiling Notes
 <Where time/resources are actually spent. Update periodically.>
 
+## Problem Profile
+
+**Bottleneck classification**: <e.g. CPU-compute (72% in inner loop), Memory-bandwidth (L3 misses on hash lookups)>
+
+### Decision Tree
+| If bottleneck is...       | Try first                              | Try second                        | Avoid (won't help)       |
+|---------------------------|----------------------------------------|-----------------------------------|--------------------------|
+| CPU-compute (hot loop)    | Algorithm change, SIMD, loop unroll    | Precompute, lookup tables         | I/O tuning               |
+| CPU-branch                | Branchless arithmetic, lookup tables   | Profile-guided optimization       | Data layout changes      |
+| Memory-bandwidth          | Data layout (SoA), cache-line align    | Smaller types, compression        | More threads             |
+| Memory-allocation         | Pool/arena, off-heap, reduce objects   | GC tuning, escape analysis        | I/O changes              |
+| I/O-read                  | Buffering, mmap, async, io_uring       | Compression, fewer reads          | CPU micro-opt            |
+| I/O-write                 | Batching, async flush, compression     | Buffer sizing, fewer writes       | Algorithm changes        |
+| Concurrency               | Shared-nothing, per-thread buffers     | Lock-free, batching               | More locking granularity |
+| Startup                   | AOT, CDS, lazy init, native-image      | Reduce classpath, class preload   | Runtime tuning           |
+| External                  | Batching, caching, connection pool     | Async/parallel calls              | Code-level micro-opt     |
+
+**Current focus**: <bottleneck> → trying <technique family> first.
+**Pivot trigger**: If 3 discards in current focus, re-profile and check if bottleneck shifted.
+
 ## What's Been Tried
 <Update as experiments accumulate. Note key wins, dead ends, architectural insights.>
 ```
@@ -105,7 +139,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
 
 Each iteration:
-1. Think about what to try next (read autoresearch.md "What's Been Tried")
+1. Think about what to try next. Consult in order: **Decision Tree** (match bottleneck → technique family), **"What's Been Tried"** (avoid repeats), **`autoresearch.ideas.md`** (queued ideas).
 2. Edit code (do NOT commit yet)
 3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup]`
    Optional args: `runs` (default 1) — run benchmark N times, report median + stddev. `warmup` (default 0) — untimed warmup runs first (JVM/JIT).
@@ -114,8 +148,16 @@ Each iteration:
 5. **MANDATORY: call the script.** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
    This script handles EVERYTHING: JSONL logging, git commit on keep, git reset on discard/crash.
    **NEVER** manually append to autoresearch.jsonl. **NEVER** manually revert code. **NEVER** manually git commit experiments. The script does all of this.
-6. Update "What's Been Tried" in autoresearch.md periodically
-7. Write promising deferred ideas to `autoresearch.ideas.md` using checkbox format. The context hook counts `- [ ]` items and nudges you to try them when keep rate is low. Use this structure:
+6. **On keep with >5% improvement**, store the technique in mdvault for future sessions:
+   ```bash
+   mdvault remember "TECHNIQUE: <name> | BOTTLENECK: <type> | GAIN: <X>% | CONTEXT: <workload type> | WORKS-WHEN: <conditions> | FAILS-WHEN: <conditions>" --namespace autoresearch/techniques
+   ```
+7. **On confirmed anti-pattern** (technique tried 2+ times, always fails for this bottleneck type):
+   ```bash
+   mdvault remember "ANTI-PATTERN: <technique> does NOT work for <bottleneck-type> because <reason>" --namespace autoresearch/anti-patterns
+   ```
+8. Update "What's Been Tried" in autoresearch.md periodically
+9. Write promising deferred ideas to `autoresearch.ideas.md` using checkbox format. The context hook counts `- [ ]` items and nudges you to try them when keep rate is low. Use this structure:
    ```markdown
    # Deferred Ideas
    ## High Priority
@@ -129,7 +171,8 @@ Each iteration:
    - [x] description (-X%): reason
    ```
    Move ideas between sections as you try them. This prevents re-trying failed approaches after resume.
-8. Repeat
+10. **Every 3 discards in a row on the same bottleneck**: re-profile, update Problem Profile, and run `mdvault search "autoresearch technique <bottleneck>" --top-k 5` for ideas from past sessions.
+11. Repeat
 
 ## Performance Knowledge Base
 
