@@ -56,7 +56,14 @@ All scripts are in the plugin. Reference them as:
       - **External**: database, API calls, subprocess, network round-trips
    c. Write the **Problem Profile** section in autoresearch.md (see template below).
    d. Build a **Decision Tree** mapping each identified bottleneck to technique families to try first, second, and what to avoid.
-   e. **Consult past experience**: run `mdvault search "autoresearch technique <bottleneck-type>" --top-k 10` for each identified bottleneck. Also run `mdvault search "autoresearch anti-pattern <bottleneck-type>" --top-k 5` to avoid known dead ends. Add relevant findings to `autoresearch.ideas.md` as high-priority candidates.
+   e. **Cross-signal correlation.** Don't stop at single-signal classification. Join two profiler signals and ask the question neither can answer alone:
+      - CPU × allocations: "Which hot method drives the most GC pressure?"
+      - CPU × exceptions: "How much compute is spent on traces that also threw exceptions?"
+      - Allocations × thread state: "Are idle/parked threads still producing heap pressure?"
+      - CPU × endpoints/phases: "Which business operation consumes the most CPU budget?"
+      - I/O × allocations: "Do I/O-heavy paths also create allocation spikes?"
+      Use whatever tool supports join queries (JFR + jfr-shell `decorateBy`, async-profiler wall-clock + alloc, perf + flamegraph diff, custom scripts joining two CSV exports on trace/thread ID). The bottleneck you identify from one signal is often a symptom — the root cause lives at the intersection of two signals.
+   f. **Consult past experience**: run `mdvault search "autoresearch technique <bottleneck-type>" --top-k 10` for each identified bottleneck. Also run `mdvault search "autoresearch anti-pattern <bottleneck-type>" --top-k 5` to avoid known dead ends. Add relevant findings to `autoresearch.ideas.md` as high-priority candidates.
 10. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
 11. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
 12. Start the main loop immediately. Follow the Loop Rules below.
@@ -172,7 +179,8 @@ Each iteration:
    ```
    Move ideas between sections as you try them. This prevents re-trying failed approaches after resume.
 10. **Every 3 discards in a row on the same bottleneck**: re-profile, update Problem Profile, and run `mdvault search "autoresearch technique <bottleneck>" --top-k 5` for ideas from past sessions.
-11. Repeat
+11. **Cross-metric correlation (every ~10 experiments).** When secondary metrics exist, scan the JSONL history and ask: do metrics move together or trade off? A latency win that silently doubles memory is a trap. A throughput gain that also reduces allocations reveals a structural improvement worth doubling down on. Write observed correlations to "Landscape Model" in autoresearch.md — they inform which dimensions to explore next.
+12. Repeat
 
 ## Performance Knowledge Base
 
@@ -257,5 +265,6 @@ When generating experiment ideas, ask yourself these questions. Each one is a co
 - **Measurement questioning.** "What am I ACTUALLY measuring? Is any measured work not part of the real problem?" JVM startup/teardown, GC finalization, file munmap — these are overhead, not computation. Question every phase in the measured window.
 - **Precompute over compute.** "Can bounded-range arithmetic become a table lookup?" If an expression's input has a small range (0-8, 0-64), pre-build a lookup array. A table load from L1 cache (~1ns) beats complex arithmetic in a pipeline.
 - **Empirical distribution awareness.** "What does the actual data look like?" Don't design for worst-case uniformly. Profile the real distribution (key lengths, value ranges, access patterns), then optimize the most common case. Rare cases get a slow path — that's fine.
+- **Cross-signal correlation.** "What question requires joining two different profiler signals?" Single-signal analysis is always incomplete. CPU samples don't know which endpoint they serve. Allocation samples don't know if their trace threw exceptions. The interesting performance stories live in the space between two signals. When profiling, always ask at least one cross-signal question: CPU×allocations, CPU×exceptions, allocations×thread-state, I/O×endpoints. The data is already in the recording — connect it.
 
 **NEVER STOP.** Keep going until interrupted.
