@@ -32,11 +32,11 @@ fi
 
 # Count results (non-config lines)
 RESULTS=$(grep -v '"type"' "$JSONL_FILE" || true)
-TOTAL=$(echo "$RESULTS" | grep -c '"status"' 2>/dev/null || echo 0)
-KEPT=$(echo "$RESULTS" | grep -c '"keep"' 2>/dev/null || echo 0)
-DISCARDED=$(echo "$RESULTS" | grep -c '"discard"' 2>/dev/null || echo 0)
-CRASHED=$(echo "$RESULTS" | grep -c '"crash"' 2>/dev/null || echo 0)
-CHECKS_FAILED=$(echo "$RESULTS" | grep -c '"checks_failed"' 2>/dev/null || echo 0)
+TOTAL=$(echo "$RESULTS" | grep -c '"status"' 2>/dev/null) || TOTAL=0
+KEPT=$(echo "$RESULTS" | grep -c '"keep"' 2>/dev/null) || KEPT=0
+DISCARDED=$(echo "$RESULTS" | grep -c '"discard"' 2>/dev/null) || DISCARDED=0
+CRASHED=$(echo "$RESULTS" | grep -c '"crash"' 2>/dev/null) || CRASHED=0
+CHECKS_FAILED=$(echo "$RESULTS" | grep -c '"checks_failed"' 2>/dev/null) || CHECKS_FAILED=0
 
 if [[ $TOTAL -eq 0 ]]; then
   echo "No experiments recorded yet."
@@ -98,7 +98,7 @@ done < <(echo "$ALL_STATUSES" | tac)
 [[ $STREAK -ge 5 ]] && echo "Consecutive non-keeps at tail: $STREAK"
 
 # Improvement curve — show the kept milestones
-KEEP_COUNT=$(echo "$RESULTS" | grep -c '"keep"' || echo 0)
+KEEP_COUNT=$(echo "$RESULTS" | grep -c '"keep"') || KEEP_COUNT=0
 if [[ $KEEP_COUNT -ge 3 ]]; then
   echo ""
   echo "Improvement curve:"

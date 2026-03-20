@@ -23,7 +23,7 @@ You are resuming an active autoresearch experiment loop after a context reset or
 
 ## Then Loop
 
-Read the **Loop Rules** and **Exploration Discipline** sections from `${CLAUDE_PLUGIN_ROOT}/skills/create/SKILL.md`. Follow them exactly. Start the next experiment immediately.
+Read the **Loop Rules** from `${CLAUDE_PLUGIN_ROOT}/skills/create/SKILL.md`. If keep rate < 15% or you feel stuck, also read `${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md` for exploration strategies and patterns. Start the next experiment immediately.
 
 **LOOP FOREVER. NEVER STOP. NEVER ASK "should I continue?"**
 

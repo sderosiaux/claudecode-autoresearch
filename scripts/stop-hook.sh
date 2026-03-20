@@ -69,7 +69,7 @@ fi
 if [[ -n "$STATE_CWD" ]] && [[ -f "$STATE_CWD/autoresearch.jsonl" ]]; then
   JSONL="$STATE_CWD/autoresearch.jsonl"
   MAX_EXP=$(grep '"type":"config"' "$JSONL" 2>/dev/null | head -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
-  TOTAL_EXP=$(grep -c '"status"' "$JSONL" 2>/dev/null || echo 0)
+  TOTAL_EXP=$(grep -c '"status"' "$JSONL" 2>/dev/null) || TOTAL_EXP=0
   if [[ -n "$MAX_EXP" ]] && [[ "$MAX_EXP" =~ ^[0-9]+$ ]] && [[ $TOTAL_EXP -ge $MAX_EXP ]]; then
     log "maxExperiments reached ($TOTAL_EXP/$MAX_EXP), allowing exit"
     echo "Autoresearch [$SHORT_ID]: Reached $MAX_EXP experiments. Done."

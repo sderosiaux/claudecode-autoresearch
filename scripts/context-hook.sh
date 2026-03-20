@@ -81,7 +81,7 @@ if [[ $TOTAL -ge 10 ]]; then
   WALL_DISCARDS=$(echo "$LAST10" | grep -c 'discard' || true)
   if [[ "$WALL_DISCARDS" -ge 10 ]]; then
     WARNINGS="${WARNINGS}
-- WALL HIT: 10 consecutive discards. You MUST do one of: (1) profile the workload and show NEW data you haven't seen before, (2) change compiler/runtime/language, (3) reformulate the problem entirely (different algorithm, different data structure), (4) try ideas from autoresearch.ideas.md. Do NOT try another micro-variation of something that already failed."
+- WALL HIT: 10 consecutive discards. You MUST: (1) Read \${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md, (2) re-profile and show NEW data, (3) change compiler/runtime/language OR reformulate the problem entirely, (4) try ideas from autoresearch.ideas.md. Do NOT try another micro-variation."
   fi
 fi
 
@@ -92,10 +92,10 @@ if [[ $TOTAL -ge 5 ]] && [[ -z "$WARNINGS" ]]; then
   if [[ "$DISCARD_COUNT" -ge 4 ]]; then
     WARNINGS="${WARNINGS}
 - PLATEAU: ${DISCARD_COUNT}/5 recent discards. MANDATORY ACTIONS:
-  1. Re-profile the workload NOW — the bottleneck may have shifted after previous optimizations.
+  1. Re-profile the workload NOW — the bottleneck may have shifted.
   2. Update the Problem Profile and Decision Tree in autoresearch.md.
-  3. Run: mdvault search \"autoresearch technique\" --top-k 10 — check past sessions for techniques you haven't tried.
-  4. Consult the Decision Tree: pick a technique from a DIFFERENT bottleneck category than your last attempts."
+  3. Read \${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md for exploration strategies and patterns.
+  4. Pick a technique from a DIFFERENT bottleneck category than your last attempts."
   fi
 fi
 
@@ -141,7 +141,7 @@ if [[ $TOTAL -ge 15 ]]; then
   done < <(grep '"status"' "$JSONL" | jq -r '.status' 2>/dev/null | tac)
   if [[ $TAIL_DISCARDS -ge 15 ]]; then
     WARNINGS="${WARNINGS}
-- CONVERGENCE: ${TAIL_DISCARDS} consecutive non-keeps. You are likely at the local optimum. Options: (1) try a RADICALLY different architecture or layer, (2) run /autoresearch:stop if satisfied, (3) read the performance handbook for orthogonal ideas."
+- CONVERGENCE: ${TAIL_DISCARDS} consecutive non-keeps. You are likely at the local optimum. Options: (1) Read \${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md for unexplored layers, (2) run /autoresearch:stop if satisfied."
   fi
 fi
 
