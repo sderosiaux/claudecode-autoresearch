@@ -43,6 +43,35 @@ if [[ -n "$MAX_EXPERIMENTS" ]] && [[ "$MAX_EXPERIMENTS" =~ ^[0-9]+$ ]] && [[ $TO
   exit 0
 fi
 
+# --- Phase label ---
+if [[ $TOTAL -lt 20 ]]; then
+  PHASE="EXPLORATION"
+elif [[ $TOTAL -lt 60 ]]; then
+  PHASE="GUIDED"
+else
+  PHASE="REFINEMENT"
+fi
+
+# --- Top kept experiments (population for LLM context) ---
+POPULATION=""
+if [[ $KEPT -ge 2 ]]; then
+  DIRECTION=$(echo "$CONFIG_LINE" | jq -r '.bestDirection // "lower"' 2>/dev/null)
+  if [[ "$DIRECTION" == "lower" ]]; then
+    SORT_FLAG=""  # ascending = best first for lower-is-better
+  else
+    SORT_FLAG="-r"  # descending = best first for higher-is-better
+  fi
+  TOP_KEEPS=$(grep '"keep"' "$JSONL" | jq -r '[.metric, .description] | @tsv' 2>/dev/null | sort -t$'\t' -k1 -n $SORT_FLAG | head -5)
+  if [[ -n "$TOP_KEEPS" ]]; then
+    POPULATION="
+- POPULATION (top 5 keeps — mutate from these, not just the latest):
+"
+    while IFS=$'\t' read -r metric desc; do
+      POPULATION="${POPULATION}  ${metric}: ${desc}"$'\n'
+    done <<< "$TOP_KEEPS"
+  fi
+fi
+
 # --- Warnings (accumulated, shown together) ---
 WARNINGS=""
 
@@ -176,6 +205,13 @@ if [[ -x "$CWD/autoresearch.checks.sh" ]]; then
   CHECKS=" Backpressure checks active."
 fi
 
+# Dimension importance analysis nudge every 15 experiments
+DIM_IMPORTANCE=""
+if [[ $TOTAL -ge 15 ]] && [[ $((TOTAL % 15)) -eq 0 ]]; then
+  DIM_IMPORTANCE="
+- DIMENSION IMPORTANCE ANALYSIS DUE ($TOTAL experiments). Parse autoresearch.jsonl: tag each experiment by dimension modified, compute keep-rate and avg improvement per dimension. Rank by actual impact. Update 'Search Space' explored/unexplored in autoresearch.md. Focus the next experiments on the top 2-3 dimensions by measured impact."
+fi
+
 # Dimension audit nudge every 10 experiments
 DIM_AUDIT=""
 if [[ $TOTAL -gt 0 ]] && [[ $((TOTAL % 10)) -eq 0 ]]; then
@@ -183,7 +219,7 @@ if [[ $TOTAL -gt 0 ]] && [[ $((TOTAL % 10)) -eq 0 ]]; then
 - DIMENSION AUDIT DUE ($TOTAL experiments). List every optimization layer you have NOT tried: language version, runtime flags, build pipeline (PGO/AOT/CDS), OS/kernel, hardware features (lscpu), data layout, algorithm class, elimination (skip work entirely), problem reformulation (relax precision, approximate), I/O strategy, parallelism, pipeline reordering, cross-language hot path (JNI/FFI), library swaps, measurement methodology. Your next experiment MUST come from an unexplored layer."
 fi
 
-ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept).${CHECKS}${WARNINGS}${DIM_AUDIT}
+ENFORCE="AUTORESEARCH MODE ACTIVE ($TOTAL runs, $KEPT kept) | Phase: $PHASE.${CHECKS}${POPULATION}${WARNINGS}${DIM_IMPORTANCE}${DIM_AUDIT}
 
 RULES:
 - DO NOT STOP. DO NOT ASK \"should I continue?\". DO NOT PAUSE.

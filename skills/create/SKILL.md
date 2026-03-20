@@ -64,6 +64,7 @@ All scripts are in the plugin. Reference them as:
       - I/O × allocations: "Do I/O-heavy paths also create allocation spikes?"
       Use whatever tool supports join queries (JFR + jfr-shell `decorateBy`, async-profiler wall-clock + alloc, perf + flamegraph diff, custom scripts joining two CSV exports on trace/thread ID). The bottleneck you identify from one signal is often a symptom — the root cause lives at the intersection of two signals.
    f. **Consult past experience**: run `mdvault search "autoresearch technique <bottleneck-type>" --top-k 10` for each identified bottleneck. Also run `mdvault search "autoresearch anti-pattern <bottleneck-type>" --top-k 5` to avoid known dead ends. Add relevant findings to `autoresearch.ideas.md` as high-priority candidates.
+   g. **Characterize the search space.** Document every tunable dimension in the "Search Space" section of `autoresearch.md`. For each dimension, note: type (continuous, discrete, categorical), range/values, and dependencies with other dimensions. This description is injected into your reasoning before each experiment — the more precise the search space, the better the LLM generates variations ([arXiv:2510.17899](https://arxiv.org/abs/2510.17899): +30.7% with problem-specific info, +14.6% with search-space info).
 10. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
 11. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
 12. Start the main loop immediately. Follow the Loop Rules below.
@@ -94,6 +95,17 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 
 ## Constraints
 <ONLY constraints the user explicitly stated. Do NOT invent constraints from the environment (e.g. do not lock to the currently installed language version, runtime, or OS). The optimization loop should be free to explore any version, runtime, or toolchain unless the user said otherwise.>
+
+## Search Space
+| Dimension | Type | Range/Values | Dependencies |
+|-----------|------|--------------|--------------|
+| <e.g. buffer_size> | continuous | 4KB–1MB | interacts with thread_count |
+| <e.g. algorithm> | categorical | quicksort, mergesort, radixsort | — |
+| <e.g. thread_count> | discrete | 1–16 | interacts with buffer_size |
+
+**Active dimensions**: <N total> | **Explored**: <list> | **Unexplored**: <list>
+
+Update this table as you discover new tunable dimensions. Before each experiment, consult the Unexplored list.
 
 ## Profiling Notes
 <Where time/resources are actually spent. Update periodically.>
@@ -146,11 +158,11 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
 
 Each iteration:
-1. Think about what to try next. Consult in order: **Decision Tree** (match bottleneck → technique family), **"What's Been Tried"** (avoid repeats), **`autoresearch.ideas.md`** (queued ideas).
+1. Think about what to try next. Consult in order: **Decision Tree** (match bottleneck → technique family), **"What's Been Tried"** (avoid repeats), **`autoresearch.ideas.md`** (queued ideas), **top kept experiments** (the context hook injects the best 5 keeps — treat them as the "population" and mutate from the best, not just from the latest state).
 2. Edit code (do NOT commit yet)
-3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup]`
-   Optional args: `runs` (default 1) — run benchmark N times, report median + stddev. `warmup` (default 0) — untimed warmup runs first (JVM/JIT).
-   When metric noise is suspected, increase runs to 3-5.
+3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]`
+   Optional args: `runs` (default 1) — run benchmark N times, report median + stddev. `warmup` (default 0) — untimed warmup runs first (JVM/JIT). `early_stop_pct` (default 0) — if >0 and runs>1, abort remaining runs when the first run's metric is this % worse than the best known keep. Use `20` for aggressive early stopping, `50` for conservative.
+   When metric noise is suspected, increase runs to 3-5. In the Refinement phase, use `runs 5 warmup 1 early_stop_pct 20` to save time on clearly worse experiments.
 4. Parse the AUTORESEARCH_* output lines
 5. **MANDATORY: call the script.** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
    This script handles EVERYTHING: JSONL logging, git commit on keep, git reset on discard/crash.
@@ -216,9 +228,14 @@ Then use the Read tool on `/tmp/linux-perf-handbook/<filename>`. Extract applica
 
 Name the active strategy at each decision point. These are cognitive activators — naming the algorithm forces the specific thinking pattern, not generic reasoning.
 
+- **Three-phase structure.** Name which phase you are in — the context hook tracks this automatically:
+  - **Exploration** (experiments 1–20): Breadth-first. Cover every optimization layer at least once. Accept bold moves. Goal: map the search space, not optimize within it.
+  - **Guided** (experiments 20–60): Decision-tree focused. Concentrate on the top 2-3 dimensions by measured impact. Use sensitivity screening to prioritize. Goal: extract maximum value from the best dimensions.
+  - **Refinement** (experiments 60+): Small, targeted variations on the best known configuration. Strict improvement only. Use `runs 3-5` to confirm every gain. Goal: squeeze the last few percent.
+  Inspired by [arXiv:2603.04027](https://arxiv.org/abs/2603.04027): Latin Hypercube Sampling → Simulated Annealing → Hill Climbing pipeline achieved +23% over defaults.
 - **Breadth-first layer sweep (first 20 experiments).** Before experiment 20, you MUST have tried at least one experiment in EACH of these layers: I/O strategy, runtime/compiler flags, data representation, algorithm class, parallelism model. Big wins hide in layers you haven't touched — micro-optimizing parsing while ignoring mmap or JIT flags is a common trap. Check the dimension list and force yourself into unexplored territory early.
 - **Think before running.** Before each experiment: "Could I know the answer without running this?" Syntactic changes the compiler treats identically are not experiments.
-- **Sensitivity screening.** Profile every ~10 experiments. Rank factors by impact. Focus experiments on the top 2-3 dimensions. Explicitly ignore factors that don't move the needle. Update "Profiling Notes" in autoresearch.md.
+- **Sensitivity screening (dimension importance).** Every ~15 experiments, analyze the JSONL history: tag each experiment by which dimension it modified, compute keep-rate and average improvement per dimension. Rank dimensions by actual measured impact — not intuition. Focus the next batch on the top 2-3 dimensions. Explicitly deprioritize dimensions with 0% keep rate after 3+ attempts. Update "Search Space" explored/unexplored and "Profiling Notes" in autoresearch.md. ([arXiv:2512.19246](https://arxiv.org/abs/2512.19246): MetaSHAP shows dimension importance analysis outperforms blind BO in convergence.)
 - **Surrogate landscape.** Every ~10 experiments, build a mental model: "Based on N data points, the quality gradient points toward X. The most promising unexplored region is Y. The exhausted regions are Z." Write this model to autoresearch.md under "Landscape Model."
 - **Simulated annealing.** Early in the session (T=high): accept bold architectural changes, even temporary regressions, if they open new possibility space. Later (T=low): strict improvement only. Name which mode you're in.
 - **Tabu search.** Never revisit a failed approach. But explore the *boundary* of the tabu set — adjacent variations that avoid the specific failure mode. Track tabu approaches in "What's Been Tried."
