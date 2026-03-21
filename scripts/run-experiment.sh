@@ -36,7 +36,6 @@ RUNS="${4:-1}"
 WARMUP="${5:-0}"
 EARLY_STOP_PCT="${6:-0}"  # If >0 and runs>1, abort remaining runs if first run metric is this % worse than best known
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(pwd)"
 CHECKS_FILE="$PROJECT_DIR/autoresearch.checks.sh"
 
@@ -61,7 +60,9 @@ PRIMARY_METRIC_NAME=""
 if [[ $EARLY_STOP_PCT -gt 0 ]] && [[ $RUNS -gt 1 ]] && [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
   BEST_DIRECTION=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.bestDirection // "lower"' 2>/dev/null)
   PRIMARY_METRIC_NAME=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.metricName // empty' 2>/dev/null)
-  BEST_METRIC=$(grep '"keep"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | jq -r '.metric' 2>/dev/null | sort -n $([ "$BEST_DIRECTION" = "higher" ] && echo "-r") | head -1)
+  SORT_FLAG=""
+  [[ "$BEST_DIRECTION" = "higher" ]] && SORT_FLAG="-r"
+  BEST_METRIC=$(grep '"keep"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | jq -r '.metric' 2>/dev/null | sort -n $SORT_FLAG | head -1)
 fi
 
 TMPOUT=$(mktemp)
