@@ -1,5 +1,6 @@
 ---
 description: Resume or continue an active autoresearch experiment loop. Use when autoresearch.md exists, or to resume after a pause/context reset.
+effort: max
 ---
 
 # Autoresearch: Resume Loop

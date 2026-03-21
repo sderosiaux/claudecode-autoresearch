@@ -1,5 +1,6 @@
 ---
 description: Set up and run an autonomous experiment loop for any optimization target. Use when asked to "run autoresearch", "optimize X in a loop", "set up autoresearch", or "start experiments".
+effort: max
 ---
 
 # Autoresearch: Setup
