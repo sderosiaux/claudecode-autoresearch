@@ -12,8 +12,9 @@ set -uo pipefail
 #                 If omitted, auto-extracts from last run-experiment METRIC lines.
 #
 # Behavior:
-#   keep           -> result appended to autoresearch.jsonl (commit already done by Claude)
-#   discard/crash/guard_failed -> git checkout -- . (revert uncommitted changes)
+#   keep           -> append JSONL entry, commit the log update
+#   discard/crash/guard_failed -> git revert HEAD (preserves experiment in history),
+#                                 fallback to git reset --hard if revert conflicts
 #
 # Reads config from the last "config" line in autoresearch.jsonl for metric metadata.
 
@@ -124,6 +125,9 @@ case "$STATUS" in
     rm -f .autoresearch-checkpoint
 
     echo "$ENTRY" >> "$JSONL_FILE"
+    # Commit the JSONL update so it's not left as uncommitted state
+    git add autoresearch.jsonl 2>/dev/null || true
+    git commit -q -m "log: $STATUS — $DESCRIPTION" 2>/dev/null || true
     echo "REVERTED ($STATUS): $DESCRIPTION (metric: $METRIC)"
     ;;
 esac

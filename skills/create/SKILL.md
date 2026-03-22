@@ -140,15 +140,15 @@ Each iteration:
 5. Parse AUTORESEARCH_* output lines
 6. **MANDATORY:** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
    **NEVER** manually append to JSONL or revert code. The script handles rollback.
-6. On keep with >5% improvement, store in mdvault if available:
+7. On keep with >5% improvement, store in mdvault if available:
    ```bash
    mdvault remember "TECHNIQUE: <name> | BOTTLENECK: <type> | GAIN: <X>% | CONTEXT: <workload> | WORKS-WHEN: <conditions>" --namespace autoresearch/techniques
    ```
-7. Update "What's Been Tried" in autoresearch.md periodically
-8. Write deferred ideas to `autoresearch.ideas.md` using checkbox format (`- [ ]` / `- [x]`)
-9. Every 3 discards in a row: re-profile, update Problem Profile. At 5 consecutive discards: trigger the escalation protocol (see below).
-10. Cross-metric correlation every ~10 experiments if secondary metrics exist
-11. Repeat
+8. Update "What's Been Tried" in autoresearch.md periodically
+9. Write deferred ideas to `autoresearch.ideas.md` using checkbox format (`- [ ]` / `- [x]`)
+10. Every 3 discards in a row: re-profile, update Problem Profile. At 5 consecutive discards: trigger the escalation protocol (see below).
+11. Cross-metric correlation every ~10 experiments if secondary metrics exist
+12. Repeat
 
 **When stuck (5+ consecutive discards), escalate in order:**
 1. **Re-read ALL in-scope files** from scratch — you may have missed something
