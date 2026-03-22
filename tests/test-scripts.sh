@@ -94,14 +94,14 @@ assert_contains "outputs METRIC line" "METRIC lines=10" "$OUTPUT"
 assert_contains "outputs AUTORESEARCH_EXIT" "AUTORESEARCH_EXIT=0" "$OUTPUT"
 assert_contains "outputs AUTORESEARCH_PASSED" "AUTORESEARCH_PASSED=true" "$OUTPUT"
 assert_contains "outputs AUTORESEARCH_CRASHED" "AUTORESEARCH_CRASHED=false" "$OUTPUT"
-assert_contains "outputs AUTORESEARCH_CHECKS" "AUTORESEARCH_CHECKS=skip" "$OUTPUT"
+assert_contains "outputs AUTORESEARCH_GUARD" "AUTORESEARCH_GUARD=skip" "$OUTPUT"
 
 # Extract duration
 DURATION=$(echo "$OUTPUT" | grep AUTORESEARCH_DURATION | cut -d= -f2)
 assert_contains "duration is a number" "." "$DURATION"
 
 echo ""
-echo "=== Test 2: run-experiment.sh with checks ==="
+echo "=== Test 2: run-experiment.sh with guard ==="
 
 cat > autoresearch.checks.sh << 'CHECKS'
 #!/bin/bash
@@ -112,12 +112,12 @@ if [[ $COUNT -ge 20 ]]; then
   echo "ERROR: too many lines ($COUNT >= 20)"
   exit 1
 fi
-echo "checks pass"
+echo "guard pass"
 CHECKS
 chmod +x autoresearch.checks.sh
 
 OUTPUT=$("$SCRIPTS/run-experiment.sh" "./autoresearch.sh")
-assert_contains "checks pass" "AUTORESEARCH_CHECKS=pass" "$OUTPUT"
+assert_contains "guard pass" "AUTORESEARCH_GUARD=pass" "$OUTPUT"
 
 echo ""
 echo "=== Test 3: run-experiment.sh with crashing command ==="
@@ -125,7 +125,7 @@ echo "=== Test 3: run-experiment.sh with crashing command ==="
 OUTPUT=$("$SCRIPTS/run-experiment.sh" "exit 1" || true)
 assert_contains "crashed" "AUTORESEARCH_CRASHED=true" "$OUTPUT"
 assert_contains "not passed" "AUTORESEARCH_PASSED=false" "$OUTPUT"
-assert_contains "checks skipped on crash" "AUTORESEARCH_CHECKS=skip" "$OUTPUT"
+assert_contains "guard skipped on crash" "AUTORESEARCH_GUARD=skip" "$OUTPUT"
 
 echo ""
 echo "=== Test 4: log-experiment.sh (init + keep) ==="

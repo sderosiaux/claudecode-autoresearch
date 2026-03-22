@@ -18,7 +18,7 @@ You are resuming an active autoresearch experiment loop after a context reset or
 7. Identify what layers have NOT been explored (check autoresearch.md "Dimension Audit" if it exists). Your first experiments after resume should target unexplored layers.
 8. Determine status for next experiment:
    - AUTORESEARCH_CRASHED=true -> `crash`
-   - AUTORESEARCH_CHECKS=fail -> `checks_failed`
+   - AUTORESEARCH_GUARD=fail -> `guard_failed`
    - Metric improved (check direction in config) -> `keep`
    - Metric worse or equal -> `discard`
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # demo.sh — Simulate a full autoresearch session from scratch.
 #
-# Creates a temp project, runs 5 iterations (keep, keep, discard, crash, checks_failed),
+# Creates a temp project, runs 5 iterations (keep, keep, discard, crash, guard_failed),
 # prints the dashboard. No Claude Code needed — just bash + git + node + jq.
 #
 # Usage: bash tests/demo.sh
@@ -71,7 +71,7 @@ echo ""
 
 # --- Iteration 0: Baseline ---
 echo "--- Run 1: Baseline ---"
-"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_CHECKS"
+"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_GUARD"
 "$PLUGIN/scripts/log-experiment.sh" keep 28 "baseline (28 lines)"
 echo ""
 
@@ -91,7 +91,7 @@ function validateInput(input) {
 
 module.exports = { processData, validateInput };
 EOF
-"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_CHECKS"
+"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_GUARD"
 "$PLUGIN/scripts/log-experiment.sh" keep 12 "simplify processData with .map() chain"
 echo ""
 
@@ -121,7 +121,7 @@ function validateInput(input) {
 
 module.exports = { processData, validateInput };
 EOF
-"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_CHECKS"
+"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_GUARD"
 "$PLUGIN/scripts/log-experiment.sh" discard 22 "added JSDoc — more lines, no benefit"
 echo ""
 
@@ -132,8 +132,8 @@ echo "function {{BROKEN" > app.js
 "$PLUGIN/scripts/log-experiment.sh" crash 0 "syntax error — reverted"
 echo ""
 
-# --- Iteration 4: Remove export (checks fail) ---
-echo "--- Run 5: Remove validateInput export (checks fail) ---"
+# --- Iteration 4: Remove export (guard fails) ---
+echo "--- Run 5: Remove validateInput export (guard fails) ---"
 cat > app.js << 'EOF'
 function processData(items) {
   return items.map(item => item.toString().trim().toLowerCase().trim());
@@ -141,8 +141,8 @@ function processData(items) {
 
 module.exports = { processData };
 EOF
-"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_CHECKS"
-"$PLUGIN/scripts/log-experiment.sh" checks_failed 4 "removed validateInput — checks caught it"
+"$PLUGIN/scripts/run-experiment.sh" ./autoresearch.sh 2>&1 | grep "METRIC\|AUTORESEARCH_PASSED\|AUTORESEARCH_GUARD"
+"$PLUGIN/scripts/log-experiment.sh" guard_failed 4 "removed validateInput — guard caught it"
 echo ""
 
 # --- Dashboard ---

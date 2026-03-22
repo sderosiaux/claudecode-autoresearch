@@ -1,14 +1,14 @@
 #!/bin/bash
 set -uo pipefail
 
-# run-experiment.sh — Run a command with timing, capture output, run optional checks.
+# run-experiment.sh — Run benchmark with timing, then run optional guard (safety-net checks).
 #
-# Usage: run-experiment.sh <command> [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]
+# Usage: run-experiment.sh <command> [timeout] [guard_timeout] [runs] [warmup] [early_stop_pct]
 #
 # Args:
 #   command:        benchmark command to run
 #   timeout:        max seconds per run (default: 600)
-#   checks_timeout: max seconds for checks (default: 300)
+#   guard_timeout:  max seconds for guard/checks (default: 300)
 #   runs:           number of measured runs, report median (default: 1)
 #   warmup:         number of untimed warmup runs (default: 0)
 #   early_stop_pct: if >0 and runs>1, abort remaining runs when first run
@@ -20,9 +20,9 @@ set -uo pipefail
 #   AUTORESEARCH_PASSED=<true|false>
 #   AUTORESEARCH_CRASHED=<true|false>
 #   AUTORESEARCH_TIMED_OUT=<true|false>
-#   AUTORESEARCH_CHECKS=<pass|fail|skip>
-#   AUTORESEARCH_CHECKS_DURATION=<seconds>
-#   AUTORESEARCH_CHECKS_OUTPUT=<base64-encoded>
+#   AUTORESEARCH_GUARD=<pass|fail|skip>
+#   AUTORESEARCH_GUARD_DURATION=<seconds>
+#   AUTORESEARCH_GUARD_OUTPUT=<base64-encoded>
 #   AUTORESEARCH_RUNS=<N>
 #   AUTORESEARCH_WARMUP=<N>
 #
@@ -31,13 +31,13 @@ set -uo pipefail
 
 COMMAND="${1:?Usage: run-experiment.sh <command> [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]}"
 TIMEOUT="${2:-600}"
-CHECKS_TIMEOUT="${3:-300}"
+GUARD_TIMEOUT="${3:-300}"
 RUNS="${4:-1}"
 WARMUP="${5:-0}"
 EARLY_STOP_PCT="${6:-0}"  # If >0 and runs>1, abort remaining runs if first run metric is this % worse than best known
 
 PROJECT_DIR="$(pwd)"
-CHECKS_FILE="$PROJECT_DIR/autoresearch.checks.sh"
+GUARD_FILE="$PROJECT_DIR/autoresearch.checks.sh"
 
 # --- Check max experiments cap ---
 if [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
@@ -171,30 +171,30 @@ else
   cat "$TMPOUT"
 fi
 
-# --- Run checks if benchmark passed and checks file exists ---
-CHECKS_STATUS="skip"
-CHECKS_DURATION="0"
-CHECKS_OUTPUT_B64=""
+# --- Run guard if benchmark passed and guard file exists ---
+GUARD_STATUS="skip"
+GUARD_DURATION="0"
+GUARD_OUTPUT_B64=""
 
-if [[ "$PASSED" == "true" ]] && [[ -x "$CHECKS_FILE" ]]; then
-  CHECKS_TMPOUT=$(mktemp)
-  CHECKS_START=$(date +%s%N)
-  timeout "${CHECKS_TIMEOUT}s" bash "$CHECKS_FILE" > "$CHECKS_TMPOUT" 2>&1
-  CHECKS_EXIT=$?
-  CHECKS_END=$(date +%s%N)
+if [[ "$PASSED" == "true" ]] && [[ -x "$GUARD_FILE" ]]; then
+  GUARD_TMPOUT=$(mktemp)
+  GUARD_START=$(date +%s%N)
+  timeout "${GUARD_TIMEOUT}s" bash "$GUARD_FILE" > "$GUARD_TMPOUT" 2>&1
+  GUARD_EXIT=$?
+  GUARD_END=$(date +%s%N)
 
-  CHECKS_DURATION=$(echo "scale=3; ($CHECKS_END - $CHECKS_START) / 1000000000" | bc)
+  GUARD_DURATION=$(echo "scale=3; ($GUARD_END - $GUARD_START) / 1000000000" | bc)
 
-  if [[ $CHECKS_EXIT -eq 0 ]]; then
-    CHECKS_STATUS="pass"
+  if [[ $GUARD_EXIT -eq 0 ]]; then
+    GUARD_STATUS="pass"
   else
-    CHECKS_STATUS="fail"
+    GUARD_STATUS="fail"
     PASSED=false
   fi
 
-  # Encode last 80 lines of checks output for structured passing
-  CHECKS_OUTPUT_B64=$(tail -80 "$CHECKS_TMPOUT" | base64)
-  rm -f "$CHECKS_TMPOUT"
+  # Encode last 80 lines of guard output for structured passing
+  GUARD_OUTPUT_B64=$(tail -80 "$GUARD_TMPOUT" | base64)
+  rm -f "$GUARD_TMPOUT"
 fi
 
 # --- Structured output ---
@@ -204,8 +204,8 @@ echo "AUTORESEARCH_DURATION=$DURATION"
 echo "AUTORESEARCH_PASSED=$PASSED"
 echo "AUTORESEARCH_CRASHED=$CRASHED"
 echo "AUTORESEARCH_TIMED_OUT=$TIMED_OUT"
-echo "AUTORESEARCH_CHECKS=$CHECKS_STATUS"
-echo "AUTORESEARCH_CHECKS_DURATION=$CHECKS_DURATION"
-echo "AUTORESEARCH_CHECKS_OUTPUT=$CHECKS_OUTPUT_B64"
+echo "AUTORESEARCH_GUARD=$GUARD_STATUS"
+echo "AUTORESEARCH_GUARD_DURATION=$GUARD_DURATION"
+echo "AUTORESEARCH_GUARD_OUTPUT=$GUARD_OUTPUT_B64"
 echo "AUTORESEARCH_RUNS=$RUNS"
 echo "AUTORESEARCH_WARMUP=$WARMUP"

@@ -5,7 +5,7 @@ set -uo pipefail
 #
 # Usage: log-experiment.sh <status> <metric> <description> [metrics_json]
 #
-#   status:       keep | discard | crash | checks_failed
+#   status:       keep | discard | crash | guard_failed (metric improved but guard check failed)
 #   metric:       primary metric value (number)
 #   description:  short description of what was tried
 #   metrics_json: optional JSON object of secondary metrics, e.g. '{"compile_us":4200}'
@@ -13,7 +13,7 @@ set -uo pipefail
 #
 # Behavior:
 #   keep           -> result appended to autoresearch.jsonl (commit already done by Claude)
-#   discard/crash/checks_failed -> git checkout -- . (revert uncommitted changes)
+#   discard/crash/guard_failed -> git checkout -- . (revert uncommitted changes)
 #
 # Reads config from the last "config" line in autoresearch.jsonl for metric metadata.
 
@@ -37,8 +37,8 @@ fi
 
 # Validate status
 case "$STATUS" in
-  keep|discard|crash|checks_failed) ;;
-  *) echo "ERROR: Invalid status '$STATUS'. Must be keep|discard|crash|checks_failed" >&2; exit 1 ;;
+  keep|discard|crash|guard_failed) ;;
+  *) echo "ERROR: Invalid status '$STATUS'. Must be keep|discard|crash|guard_failed" >&2; exit 1 ;;
 esac
 
 # Validate metric is a number (integer or float), default to 0
@@ -105,7 +105,7 @@ case "$STATUS" in
     COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
-  discard|crash|checks_failed)
+  discard|crash|guard_failed)
     # Save autoresearch files outside repo, hard-reset to checkpoint, restore them
     BAK_DIR=$(mktemp -d)
     cp "$JSONL_FILE" "$BAK_DIR/jsonl" 2>/dev/null || true

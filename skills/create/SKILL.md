@@ -16,11 +16,11 @@ All scripts are in the plugin. Reference them as:
 
 ## Setup Steps
 
-1. Use `AskUserQuestion` to confirm: **Goal**, **Metric** (+ direction), **Files in scope**, **Constraints**. Do NOT infer constraints silently — ask the user what's off-limits. If they say "none", write "none". The environment (language version, runtime, OS) is always part of the optimization surface unless the user explicitly restricts it.
+1. Use `AskUserQuestion` to confirm: **Goal**, **Metric** (+ direction), **Files in scope**, **Constraints**, **Guard** (optional safety-net command that must always pass — e.g. `pnpm test`, `tsc --noEmit`). Do NOT infer constraints silently — ask the user what's off-limits. If they say "none", write "none". The environment (language version, runtime, OS) is always part of the optimization surface unless the user explicitly restricts it.
 2. Create branch: `git checkout -b autoresearch/<goal>-<date>`
 3. Read the source files in scope. Understand the workload deeply before writing anything.
 4. Write `autoresearch.md` (session doc, template below) and `autoresearch.sh` (benchmark script). Commit both.
-5. If constraints require correctness checks, write `autoresearch.checks.sh`. Commit it.
+5. If a guard was specified (or constraints require correctness checks), write `autoresearch.checks.sh` — the guard script. This must exit 0 when everything is OK; non-zero blocks the keep. Commit it.
 6. Install the pre-commit hook:
    ```bash
    cp "${CLAUDE_PLUGIN_ROOT}/scripts/pre-commit-hook.sh" .git/hooks/pre-commit
@@ -77,6 +77,9 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 ## Off Limits
 <What must NOT be touched.>
 
+## Guard
+<Guard command if any, e.g. `pnpm test`. "none" if no guard.>
+
 ## Constraints
 <ONLY constraints the user explicitly stated.>
 
@@ -106,9 +109,9 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 
 Bash script (`set -euo pipefail`): pre-checks fast (<1s), runs the benchmark, outputs `METRIC name=number` lines. **The benchmark scripts are IN SCOPE — modify them freely.** Extend them when a new optimization dimension requires it (JVM flags file, compiler flags, env vars). Do NOT skip a dimension because "the script doesn't support it" — make the script support it.
 
-### autoresearch.checks.sh (optional)
+### autoresearch.checks.sh — the Guard (optional)
 
-Bash script for backpressure checks: tests, types, lint. Only create when constraints require it.
+The guard is a safety net that must always pass. If the benchmark improves but the guard fails, the change is reverted (`guard_failed`). Common guards: `pnpm test`, `tsc --noEmit`, `pnpm build`. Create only when the user specifies a guard or constraints require it. Never modify the guard script during the loop.
 
 ## Loop Rules
 
@@ -118,6 +121,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Validate small gains.** Delta < 5% -> re-run with `runs 5`. If stddev > delta, discard.
 - **Simpler is better.** Removing code for equal perf = keep.
 - **Don't thrash.** Repeatedly reverting? Try something structurally different.
+- **Guard failed?** Metric improved but guard failed → `guard_failed`, revert. Don't touch the guard script — adapt the implementation.
 - **Crashes:** fix if trivial, otherwise log and move on.
 - **Don't self-impose constraints.** The environment is part of the optimization surface unless the user said otherwise.
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.

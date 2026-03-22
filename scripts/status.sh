@@ -36,7 +36,7 @@ TOTAL=$(echo "$RESULTS" | grep -c '"status"' 2>/dev/null) || TOTAL=0
 KEPT=$(echo "$RESULTS" | grep -c '"keep"' 2>/dev/null) || KEPT=0
 DISCARDED=$(echo "$RESULTS" | grep -c '"discard"' 2>/dev/null) || DISCARDED=0
 CRASHED=$(echo "$RESULTS" | grep -c '"crash"' 2>/dev/null) || CRASHED=0
-CHECKS_FAILED=$(echo "$RESULTS" | grep -c '"checks_failed"' 2>/dev/null) || CHECKS_FAILED=0
+GUARD_FAILED=$(echo "$RESULTS" | grep -c '"guard_failed"' 2>/dev/null) || GUARD_FAILED=0
 
 if [[ $TOTAL -eq 0 ]]; then
   echo "No experiments recorded yet."
@@ -69,7 +69,7 @@ fi
 
 # Print dashboard
 [[ -n "$SESSION_NAME" ]] && echo "Session: $SESSION_NAME"
-echo "Runs: $TOTAL | $KEPT kept | $DISCARDED discarded | $CRASHED crashed | $CHECKS_FAILED checks_failed"
+echo "Runs: $TOTAL | $KEPT kept | $DISCARDED discarded | $CRASHED crashed | $GUARD_FAILED guard_failed"
 echo "Baseline: ${BASELINE}${METRIC_UNIT} ($METRIC_NAME)"
 [[ -n "$BEST" ]] && echo "Best:     ${BEST}${METRIC_UNIT}${DELTA}"
 
