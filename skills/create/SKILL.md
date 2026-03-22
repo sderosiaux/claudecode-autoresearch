@@ -27,7 +27,7 @@ All scripts are in the plugin. Reference them as:
    ```
 7. Write the config line to `autoresearch.jsonl`:
    ```bash
-   echo '{"type":"config","name":"<name>","metricName":"<metric>","metricUnit":"<unit>","bestDirection":"<lower|higher>","maxExperiments":100}' > autoresearch.jsonl
+   echo '{"type":"config","name":"<name>","metricName":"<metric>","metricUnit":"<unit>","bestDirection":"<lower|higher>"}' > autoresearch.jsonl
    ```
 8. Create the auto-resume state file:
    ```bash
@@ -49,6 +49,8 @@ All scripts are in the plugin. Reference them as:
    d. **Cross-signal correlation**: join two profiler signals to find root causes at intersections (CPU x allocations, CPU x exceptions, alloc x thread-state, I/O x endpoints).
    e. **Characterize the search space**: document every tunable dimension in the "Search Space" section of autoresearch.md — type (continuous, discrete, categorical), range/values, dependencies.
    f. **Consult past experience**: `mdvault search "autoresearch technique <bottleneck-type>" --top-k 10` if available.
+   g. **Algorithmic complexity audit**: For each hot function, state current Big-O and theoretical best Big-O. If current is worse by ≥1 level (e.g., O(N²) vs O(N log N)), the FIRST experiment MUST target the worst Big-O gap.
+   h. **Headroom table**: For each bottleneck, estimate: (1) % of total runtime, (2) theoretical max speedup if fully optimized, (3) headroom = (1) × (2). Write this table in autoresearch.md. Attack the highest-headroom row first.
 10. Run baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh"`
 11. Log baseline: `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh keep <metric_value> "baseline"`
 12. Start the main loop immediately. Follow the Loop Rules below.
@@ -84,6 +86,10 @@ Log results with `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`.
 
 **Active dimensions**: <N> | **Explored**: <list> | **Unexplored**: <list>
 
+## Headroom Table
+| Bottleneck | % Runtime | Max Speedup | Headroom | Current Big-O | Best Big-O |
+|------------|-----------|-------------|----------|---------------|------------|
+
 ## Profiling Notes
 <Where time/resources are actually spent. Update periodically.>
 
@@ -117,7 +123,7 @@ Bash script for backpressure checks: tests, types, lint. Only create when constr
 - **Resuming:** if `autoresearch.md` exists, read it + git log, continue looping.
 
 Each iteration:
-1. Think about what to try next. Consult: **Decision Tree** -> **"What's Been Tried"** -> **`autoresearch.ideas.md`** -> **top kept experiments** (the context hook injects top 5 keeps as "population" — mutate from the best, not just the latest).
+1. Choose what to try next. Consult: **Headroom table** -> **Decision Tree** -> **"What's Been Tried"** -> **`autoresearch.ideas.md`** -> **top kept experiments** (the context hook injects top 5 keeps as "population" — mutate from the best, not just the latest). **Always attack the highest-headroom bottleneck first.**
 2. Edit code (do NOT commit yet)
 3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]`
    `runs` (default 1): N times, report median. `warmup` (default 0): untimed. `early_stop_pct` (default 0): abort remaining runs when first run is >N% worse than best. In Refinement phase, use `runs 5 warmup 1 early_stop_pct 20`.

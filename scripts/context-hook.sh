@@ -34,14 +34,8 @@ TOTAL=$(grep -c '"status"' "$JSONL" 2>/dev/null) || TOTAL=0
 KEPT=$(grep -c '"keep"' "$JSONL" 2>/dev/null) || KEPT=0
 DISCARDED=$(grep -c '"discard"' "$JSONL" 2>/dev/null) || DISCARDED=0
 
-# --- Hard cap on total experiments ---
+# --- Config ---
 CONFIG_LINE=$(grep '"type":"config"' "$JSONL" 2>/dev/null | head -1)
-MAX_EXPERIMENTS=$(echo "$CONFIG_LINE" | jq -r '.maxExperiments // empty' 2>/dev/null)
-if [[ -n "$MAX_EXPERIMENTS" ]] && [[ "$MAX_EXPERIMENTS" =~ ^[0-9]+$ ]] && [[ $TOTAL -ge $MAX_EXPERIMENTS ]]; then
-  jq -nc --arg ctx "AUTORESEARCH COMPLETE. Reached max experiments ($MAX_EXPERIMENTS). $TOTAL runs, $KEPT kept. STOP NOW — run /autoresearch:status for the final dashboard." \
-    '{additionalContext: $ctx}'
-  exit 0
-fi
 
 # --- Phase label ---
 if [[ $TOTAL -lt 20 ]]; then
