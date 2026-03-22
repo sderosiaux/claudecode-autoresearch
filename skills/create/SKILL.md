@@ -10,6 +10,7 @@ Autonomous experiment loop: try ideas, keep what works, discard what doesn't, ne
 ## Scripts
 
 All scripts are in the plugin. Reference them as:
+- `${CLAUDE_PLUGIN_ROOT}/scripts/prepare-experiment.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/status.sh`
@@ -128,22 +129,35 @@ The guard is a safety net that must always pass. If the benchmark improves but t
 
 Each iteration:
 1. Choose what to try next. Consult: **Headroom table** -> **Decision Tree** -> **"What's Been Tried"** -> **`autoresearch.ideas.md`** -> **top kept experiments** (the context hook injects top 5 keeps as "population" — mutate from the best, not just the latest). **Always attack the highest-headroom bottleneck first.**
-2. Edit code (do NOT commit yet)
-3. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]`
+2. Edit code
+3. **Prepare the experiment** (stages, validates atomicity, commits). This enables `git revert` on failure (preserving the attempt in history as memory):
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/scripts/prepare-experiment.sh "<description>" [files...]
+   ```
+   If `AUTORESEARCH_PREPARED=false`, skip to next iteration.
+4. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]`
    `runs` (default 1): N times, report median. `warmup` (default 0): untimed. `early_stop_pct` (default 0): abort remaining runs when first run is >N% worse than best. In Refinement phase, use `runs 5 warmup 1 early_stop_pct 20`.
-4. Parse AUTORESEARCH_* output lines
-5. **MANDATORY:** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
-   **NEVER** manually append to JSONL, revert code, or git commit. The script handles everything.
+5. Parse AUTORESEARCH_* output lines
+6. **MANDATORY:** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
+   **NEVER** manually append to JSONL or revert code. The script handles rollback.
 6. On keep with >5% improvement, store in mdvault if available:
    ```bash
    mdvault remember "TECHNIQUE: <name> | BOTTLENECK: <type> | GAIN: <X>% | CONTEXT: <workload> | WORKS-WHEN: <conditions>" --namespace autoresearch/techniques
    ```
 7. Update "What's Been Tried" in autoresearch.md periodically
 8. Write deferred ideas to `autoresearch.ideas.md` using checkbox format (`- [ ]` / `- [x]`)
-9. Every 3 discards in a row: re-profile, update Problem Profile
+9. Every 3 discards in a row: re-profile, update Problem Profile. At 5 consecutive discards: trigger the escalation protocol (see below).
 10. Cross-metric correlation every ~10 experiments if secondary metrics exist
 11. Repeat
 
-**When stuck or plateauing (4+ discards in 5):** Read `${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md` for exploration strategies, dimension checklists, decision tree templates, and optimization patterns.
+**When stuck (5+ consecutive discards), escalate in order:**
+1. **Re-read ALL in-scope files** from scratch — you may have missed something
+2. **Re-read the original goal/direction** — recalibrate
+3. **Review full experiment history** (`git log --oneline -50`) — look for patterns in what worked vs failed
+4. **Combine near-misses** — two changes that individually didn't help might work together
+5. **Try the OPPOSITE** of what hasn't been working — if optimizing in one direction, reverse
+6. **Radical architecture change** — rethink the approach entirely, different algorithm/structure
+
+Also read `${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md` for exploration strategies, dimension checklists, decision tree templates, and optimization patterns.
 
 **NEVER STOP.** Keep going until interrupted.

@@ -50,9 +50,6 @@ if [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
   fi
 fi
 
-# --- Save checkpoint for safe revert ---
-git rev-parse HEAD > "$PROJECT_DIR/.autoresearch-checkpoint" 2>/dev/null
-
 # --- Early stopping: get best known metric for comparison ---
 BEST_METRIC=""
 BEST_DIRECTION=""

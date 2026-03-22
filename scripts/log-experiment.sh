@@ -55,9 +55,10 @@ fi
 
 TIMESTAMP=$(date +%s)
 
-# Flow: agent edits code (uncommitted) -> run-experiment -> log-experiment
-# keep = write JSONL, then commit everything (including the new JSONL entry).
-# discard/crash = save JSONL aside, revert working tree, restore JSONL, append entry.
+# Flow: agent edits code -> commits experiment -> run-experiment -> log-experiment
+# keep = append JSONL entry, commit the log update.
+# discard/crash/guard_failed = git revert HEAD (preserves failed experiment in history).
+#   Fallback to git reset --hard if revert conflicts.
 
 COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
 
@@ -77,51 +78,49 @@ ENTRY=$(jq -nc \
 
 case "$STATUS" in
   keep)
-    # Append entry first, then commit everything
+    # Experiment already committed by the agent before benchmark.
+    # Just log the result and commit the JSONL update.
     echo "$ENTRY" >> "$JSONL_FILE"
     rm -f .autoresearch-checkpoint
-    git add -u 2>/dev/null
-    git add autoresearch.jsonl autoresearch.md autoresearch.ideas.md autoresearch.checks.sh autoresearch.sh jvm.opts 2>/dev/null || true
-    # Strip redundant "experiment:" prefix if description already starts with it
-    COMMIT_MSG="$DESCRIPTION"
-    [[ ! "$COMMIT_MSG" =~ ^experiment: ]] && COMMIT_MSG="experiment: $COMMIT_MSG"
-    COMMIT_ERR=$(mktemp)
-    if ! git commit -q -m "$COMMIT_MSG" 2>"$COMMIT_ERR"; then
-      # Pre-commit hooks (formatters) may have modified staged files — re-stage and retry
-      git add -u 2>/dev/null
-      git add autoresearch.jsonl autoresearch.md autoresearch.ideas.md autoresearch.checks.sh autoresearch.sh jvm.opts 2>/dev/null || true
-      if ! git commit -q -m "$COMMIT_MSG" 2>>"$COMMIT_ERR"; then
-        # Hooks still blocking — show error, force commit to preserve experiment state
-        echo "WARNING: pre-commit hooks rejected commit. Bypassing to preserve experiment state." >&2
-        echo "WARNING: Fix these issues before the next experiment:" >&2
-        cat "$COMMIT_ERR" >&2
-        git commit -q --no-verify -m "$COMMIT_MSG" 2>/dev/null || {
-          echo "ERROR: git commit failed even with --no-verify — changes NOT committed." >&2
-          echo "ERROR: Next discard WILL LOSE these changes. Commit manually before discarding." >&2
-        }
-      fi
-    fi
-    rm -f "$COMMIT_ERR"
+    git add autoresearch.jsonl autoresearch.md autoresearch.ideas.md 2>/dev/null || true
+    git commit -q -m "log: keep — $DESCRIPTION" 2>/dev/null || true
     COMMIT=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "unknown")
     echo "KEPT: $DESCRIPTION (metric: $METRIC, commit: $COMMIT)"
     ;;
   discard|crash|guard_failed)
-    # Save autoresearch files outside repo, hard-reset to checkpoint, restore them
-    BAK_DIR=$(mktemp -d)
-    cp "$JSONL_FILE" "$BAK_DIR/jsonl" 2>/dev/null || true
-    cp autoresearch.md "$BAK_DIR/md" 2>/dev/null || true
-    cp autoresearch.ideas.md "$BAK_DIR/ideas" 2>/dev/null || true
-
-    # Hard reset to checkpoint (handles both uncommitted edits AND rogue commits)
+    # Revert using git revert (preserves failed experiment in history as memory).
+    # Fallback to git reset --hard only if revert produces merge conflicts.
     CHECKPOINT=$(cat .autoresearch-checkpoint 2>/dev/null || git rev-parse HEAD)
-    git reset --hard "$CHECKPOINT" 2>/dev/null
-    git clean -fd 2>/dev/null
+    CURRENT=$(git rev-parse HEAD 2>/dev/null)
 
-    # Restore autoresearch files
-    mv "$BAK_DIR/jsonl" "$JSONL_FILE" 2>/dev/null || true
-    [[ -f "$BAK_DIR/md" ]] && mv "$BAK_DIR/md" autoresearch.md
-    [[ -f "$BAK_DIR/ideas" ]] && mv "$BAK_DIR/ideas" autoresearch.ideas.md
-    rm -rf "$BAK_DIR"
+    if [[ "$CURRENT" != "$CHECKPOINT" ]]; then
+      # There are commits to revert (agent committed before verification)
+      if git revert HEAD --no-edit 2>/dev/null; then
+        echo "Reverted via git revert (experiment preserved in history for learning)"
+      else
+        # Revert conflicted — fallback to reset
+        git revert --abort 2>/dev/null
+        echo "Revert conflicted — falling back to git reset --hard"
+
+        BAK_DIR=$(mktemp -d)
+        cp "$JSONL_FILE" "$BAK_DIR/jsonl" 2>/dev/null || true
+        cp autoresearch.md "$BAK_DIR/md" 2>/dev/null || true
+        cp autoresearch.ideas.md "$BAK_DIR/ideas" 2>/dev/null || true
+
+        git reset --hard "$CHECKPOINT" 2>/dev/null
+        git clean -fd 2>/dev/null
+
+        mv "$BAK_DIR/jsonl" "$JSONL_FILE" 2>/dev/null || true
+        [[ -f "$BAK_DIR/md" ]] && mv "$BAK_DIR/md" autoresearch.md
+        [[ -f "$BAK_DIR/ideas" ]] && mv "$BAK_DIR/ideas" autoresearch.ideas.md
+        rm -rf "$BAK_DIR"
+      fi
+    else
+      # No commits to revert — just discard uncommitted changes
+      git checkout -- . 2>/dev/null
+      git clean -fd 2>/dev/null
+    fi
+
     rm -f .autoresearch-checkpoint
 
     echo "$ENTRY" >> "$JSONL_FILE"
