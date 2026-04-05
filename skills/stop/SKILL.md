@@ -13,10 +13,16 @@ Stop the active autoresearch loop and disable auto-resume.
    # List active state files
    ls -la ~/.claude/states/autoresearch/ 2>/dev/null
 
-   # Remove all state files for current cwd
+   # Remove only the state file for the CURRENT session (not other concurrent sessions)
+   SESSION_ID="${CLAUDE_SESSION_ID:-}"
    for f in ~/.claude/states/autoresearch/*.md; do
-     if grep -q "$(pwd)" "$f" 2>/dev/null; then
-       echo "Removing: $f"
+     FILE_SESSION=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$f" 2>/dev/null | grep '^session_id:' | sed 's/session_id: *//' | sed 's/^"\(.*\)"$/\1/')
+     if [[ -n "$SESSION_ID" ]] && [[ "$FILE_SESSION" == "$SESSION_ID" ]]; then
+       echo "Removing: $f (session match)"
+       rm "$f"
+     elif [[ -z "$SESSION_ID" ]] && grep -q "$(pwd)" "$f" 2>/dev/null; then
+       # Fallback: match by cwd if session ID unavailable
+       echo "Removing: $f (cwd match)"
        rm "$f"
      fi
    done

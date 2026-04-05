@@ -14,6 +14,7 @@ All scripts are in the plugin. Reference them as:
 - `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh`
 - `${CLAUDE_PLUGIN_ROOT}/scripts/status.sh`
+- `${CLAUDE_PLUGIN_ROOT}/scripts/advisor.py` (UCB scoring, failure analysis, cost tracking)
 
 ## Setup Steps
 
@@ -60,6 +61,13 @@ All scripts are in the plugin. Reference them as:
 
 ```markdown
 # Autoresearch: <goal>
+
+## Directive
+<!-- Declarative section: WHAT to optimize, not session state -->
+- **Goal**: <one sentence>
+- **Success metric**: <name> (<unit>, <lower|higher> is better)
+- **Hard constraints**: <ONLY what the user explicitly forbids>
+- **Generality test**: Every change must pass: "If this benchmark disappeared, would this still be a worthwhile improvement?"
 
 ## Objective
 <What we're optimizing and the workload.>
@@ -121,6 +129,10 @@ The guard is a safety net that must always pass. If the benchmark improves but t
 - **Primary metric is king.** Improved -> `keep`. Worse/equal -> `discard`.
 - **Validate small gains.** Delta < 5% -> re-run with `runs 5`. If stddev > delta, discard.
 - **Simpler is better.** Removing code for equal perf = keep.
+- **Simplicity gate.** If diff adds >50 net lines for <5% gain, flag as suspicious complexity. Prefer the simpler approach.
+- **Generality test.** Before keeping: "If this benchmark disappeared, would this change still be worthwhile?" If no, discard — it's overfitting.
+- **Diagnose failures.** On discard/crash/guard_failed, pass a root-cause reason to log-experiment.sh: `log-experiment.sh <status> <metric> "<description>" '{}' "root cause"` (use `'{}'` as metrics_json placeholder when passing failure_reason as 5th arg). WHY it failed, not just that it failed. Every 5 experiments, run `advisor.py failures autoresearch.jsonl` to spot repeated failure patterns.
+- **Cost awareness.** Each experiment logs `elapsed_s` (time since previous experiment). Every 10 experiments, run `advisor.py cost autoresearch.jsonl` to check: are discards burning more time than keeps? If avg discard time > 2x avg keep time, simplify your approach.
 - **Don't thrash.** Repeatedly reverting? Try something structurally different.
 - **Guard failed?** Metric improved but guard failed → `guard_failed`, revert. Don't touch the guard script — adapt the implementation.
 - **Crashes:** fix if trivial, otherwise log and move on.
@@ -138,8 +150,12 @@ Each iteration:
 4. `${CLAUDE_PLUGIN_ROOT}/scripts/run-experiment.sh "./autoresearch.sh" [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]`
    `runs` (default 1): N times, report median. `warmup` (default 0): untimed. `early_stop_pct` (default 0): abort remaining runs when first run is >N% worse than best. In Refinement phase, use `runs 5 warmup 1 early_stop_pct 20`.
 5. Parse AUTORESEARCH_* output lines
-6. **MANDATORY:** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>"`
+6. **MANDATORY:** `${CLAUDE_PLUGIN_ROOT}/scripts/log-experiment.sh <status> <metric> "<description>" [metrics_json] [failure_reason]`
    **NEVER** manually append to JSONL or revert code. The script handles rollback.
+   **Description format**: `[dimension] what you tried | techniques: tech1, tech2`
+   - `dimension`: the optimization layer (algorithm, data-layout, io, runtime-flags, parallelism, build-pipeline, os-kernel, hardware, elimination, problem-reformulation, pipeline-order, cross-language, library-swap, compression, concurrency, measurement)
+   - `techniques`: cumulative list of named techniques in current working code
+   - Example: `[data-layout] convert HashMap to flat arrays | techniques: flat-array, arena-allocator, SoA`
 7. On keep with >5% improvement, store in mdvault if available:
    ```bash
    mdvault remember "TECHNIQUE: <name> | BOTTLENECK: <type> | GAIN: <X>% | CONTEXT: <workload> | WORKS-WHEN: <conditions>" --namespace autoresearch/techniques

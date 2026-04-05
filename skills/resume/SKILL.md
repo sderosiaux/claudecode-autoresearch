@@ -16,11 +16,7 @@ You are resuming an active autoresearch experiment loop after a context reset or
 5. Run `git log --oneline -n 10` — see recent experiment commits
 6. **Consult past experience**: for each bottleneck in the Problem Profile, run `mdvault search "autoresearch technique <bottleneck-type>" --top-k 5`. Also run `mdvault search "autoresearch anti-pattern <bottleneck-type>" --top-k 5` to avoid known dead ends. Add relevant findings to `autoresearch.ideas.md`.
 7. Identify what layers have NOT been explored (check autoresearch.md "Dimension Audit" if it exists). Your first experiments after resume should target unexplored layers.
-8. Determine status for next experiment:
-   - AUTORESEARCH_CRASHED=true -> `crash`
-   - AUTORESEARCH_GUARD=fail -> `guard_failed`
-   - Metric improved (check direction in config) -> `keep`
-   - Metric worse or equal -> `discard`
+8. If an experiment was in progress when the context reset happened (uncommitted changes exist), run the benchmark to determine the result. Otherwise, start a fresh experiment.
 
 ## Then Loop
 
