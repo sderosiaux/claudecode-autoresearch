@@ -31,7 +31,7 @@ if [[ -n "$CONFIG" ]]; then
 fi
 
 # Count results (non-config lines)
-RESULTS=$(grep -v '"type"' "$JSONL_FILE" || true)
+RESULTS=$(grep '"status"' "$JSONL_FILE" || true)
 TOTAL=$(echo "$RESULTS" | grep -c '"status"' 2>/dev/null) || TOTAL=0
 KEPT=$(echo "$RESULTS" | grep -c '"keep"' 2>/dev/null) || KEPT=0
 DISCARDED=$(echo "$RESULTS" | grep -c '"discard"' 2>/dev/null) || DISCARDED=0
@@ -73,6 +73,14 @@ echo "Runs: $TOTAL | $KEPT kept | $DISCARDED discarded | $CRASHED crashed | $GUA
 echo "Baseline: ${BASELINE}${METRIC_UNIT} ($METRIC_NAME)"
 [[ -n "$BEST" ]] && echo "Best:     ${BEST}${METRIC_UNIT}${DELTA}"
 
+# Cost tracking
+TOTAL_ELAPSED=$(echo "$RESULTS" | jq -r '.elapsed_s // 0' 2>/dev/null | paste -sd+ - | bc 2>/dev/null) || TOTAL_ELAPSED=0
+TIMED_COUNT=$(echo "$RESULTS" | jq -r '.elapsed_s // 0' 2>/dev/null | grep -vc '^0$' 2>/dev/null) || TIMED_COUNT=0
+if [[ "$TOTAL_ELAPSED" -gt 0 ]] 2>/dev/null && [[ "$TIMED_COUNT" -gt 0 ]] 2>/dev/null; then
+  AVG_ELAPSED=$(( TOTAL_ELAPSED / TIMED_COUNT ))
+  echo "Cost:     ${TOTAL_ELAPSED}s total | ~${AVG_ELAPSED}s/experiment (${TIMED_COUNT} timed)"
+fi
+
 # Keep rate trends
 echo ""
 ALL_STATUSES=$(echo "$RESULTS" | grep '"status"' | jq -r '.status' | grep -v '^$')
@@ -103,7 +111,12 @@ if [[ $KEEP_COUNT -ge 3 ]]; then
   echo ""
   echo "Improvement curve:"
   echo "$RESULTS" | grep '"keep"' | jq -r '[.n // "", .metric, .description] | @tsv' | \
-    awk -F'\t' 'NR==1{first=$2} {printf "  #%-4s %12s  (%.0fx)  %s\n", $1, $2, ($2/first), $3}'
+    awk -F'\t' -v dir="$DIRECTION" 'NR==1{first=$2} {
+      if (dir == "lower" && first > 0) ratio = first / $2;
+      else if (first != 0) ratio = $2 / first;
+      else ratio = 1;
+      printf "  #%-4s %12s  (%.1fx)  %s\n", $1, $2, ratio, $3
+    }'
 fi
 
 # Last 5 results
