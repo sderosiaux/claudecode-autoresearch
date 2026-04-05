@@ -29,7 +29,7 @@ set -uo pipefail
 # When runs > 1, METRIC lines report the median across runs.
 # Per-metric stddev is emitted as METRIC <name>_stddev=<value>.
 
-COMMAND="${1:?Usage: run-experiment.sh <command> [timeout] [checks_timeout] [runs] [warmup] [early_stop_pct]}"
+COMMAND="${1:?Usage: run-experiment.sh <command> [timeout] [guard_timeout] [runs] [warmup] [early_stop_pct]}"
 TIMEOUT="${2:-600}"
 GUARD_TIMEOUT="${3:-300}"
 RUNS="${4:-1}"
@@ -41,7 +41,7 @@ GUARD_FILE="$PROJECT_DIR/autoresearch.checks.sh"
 
 # --- Check max experiments cap ---
 if [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
-  MAX_EXP=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
+  MAX_EXP=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | tail -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
   TOTAL_EXP=$(grep -c '"status"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null) || TOTAL_EXP=0
   if [[ -n "$MAX_EXP" ]] && [[ "$MAX_EXP" =~ ^[0-9]+$ ]] && [[ $TOTAL_EXP -ge $MAX_EXP ]]; then
     echo "AUTORESEARCH_LIMIT_REACHED=true"
@@ -55,16 +55,18 @@ BEST_METRIC=""
 BEST_DIRECTION=""
 PRIMARY_METRIC_NAME=""
 if [[ $EARLY_STOP_PCT -gt 0 ]] && [[ $RUNS -gt 1 ]] && [[ -f "$PROJECT_DIR/autoresearch.jsonl" ]]; then
-  BEST_DIRECTION=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.bestDirection // "lower"' 2>/dev/null)
-  PRIMARY_METRIC_NAME=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | head -1 | jq -r '.metricName // empty' 2>/dev/null)
+  BEST_DIRECTION=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | tail -1 | jq -r '.bestDirection // "lower"' 2>/dev/null)
+  PRIMARY_METRIC_NAME=$(grep '"type":"config"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | tail -1 | jq -r '.metricName // empty' 2>/dev/null)
   SORT_FLAG=""
   [[ "$BEST_DIRECTION" = "higher" ]] && SORT_FLAG="-r"
   BEST_METRIC=$(grep '"keep"' "$PROJECT_DIR/autoresearch.jsonl" 2>/dev/null | jq -r '.metric' 2>/dev/null | sort -n $SORT_FLAG | head -1)
 fi
 
-TMPOUT=$(mktemp)
+TMPOUT=$(mktemp /tmp/autoresearch-$$-output.XXXXXX)
 METRICS_DIR=$(mktemp -d)
-trap 'rm -f "$TMPOUT"; rm -rf "$METRICS_DIR"' EXIT
+# Note: TMPOUT is NOT cleaned up here — log-experiment.sh reads it for secondary metrics auto-extraction.
+# It lives in /tmp and will be cleaned by the OS. Only clean METRICS_DIR.
+trap 'rm -rf "$METRICS_DIR"' EXIT
 
 # --- Warmup runs (untimed, output discarded) ---
 if [[ $WARMUP -gt 0 ]]; then
@@ -146,9 +148,17 @@ if [[ "$PASSED" == "true" ]] && [[ $RUNS -gt 1 ]]; then
 
     if [[ $COUNT -eq 0 ]]; then continue; fi
 
-    # Median: middle element (1-indexed)
-    MID=$(( (COUNT + 1) / 2 ))
-    MEDIAN=$(echo "$VALUES" | sed -n "${MID}p")
+    # Median: for odd N, middle element; for even N, average of two middle elements
+    if (( COUNT % 2 == 1 )); then
+      MID=$(( (COUNT + 1) / 2 ))
+      MEDIAN=$(echo "$VALUES" | sed -n "${MID}p")
+    else
+      MID1=$(( COUNT / 2 ))
+      MID2=$(( MID1 + 1 ))
+      V1=$(echo "$VALUES" | sed -n "${MID1}p")
+      V2=$(echo "$VALUES" | sed -n "${MID2}p")
+      MEDIAN=$(echo "scale=6; ($V1 + $V2) / 2" | bc)
+    fi
 
     # Stddev
     STDDEV=$(echo "$VALUES" | awk '{s+=$1; ss+=$1*$1; n++} END {if(n>1) printf "%.2f", sqrt((ss - s*s/n)/(n-1)); else print "0"}')

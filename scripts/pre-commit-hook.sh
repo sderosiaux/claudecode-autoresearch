@@ -40,9 +40,9 @@ while IFS= read -r line; do
   # Validate status value
   STATUS=$(echo "$line" | jq -r '.status // empty' 2>/dev/null)
   case "$STATUS" in
-    keep|discard|crash|checks_failed) ;;
+    keep|discard|crash|guard_failed) ;;
     "") ;;  # might be a non-experiment line
-    *) err "autoresearch.jsonl line $LINENO_: invalid status '$STATUS' (must be keep|discard|crash|checks_failed)" ;;
+    *) err "autoresearch.jsonl line $LINENO_: invalid status '$STATUS' (must be keep|discard|crash|guard_failed)" ;;
   esac
 done < "$JSONL"
 
@@ -62,8 +62,8 @@ if [[ -f "autoresearch.sh" ]]; then
   if [[ ! -x "autoresearch.sh" ]]; then
     err "autoresearch.sh: not executable (run: chmod +x autoresearch.sh)"
   fi
-  if ! grep -q 'METRIC' "autoresearch.sh" 2>/dev/null; then
-    err "autoresearch.sh: must output METRIC lines (grep found no 'METRIC' in script)"
+  if ! grep -qE 'METRIC|\.\/|exec ' "autoresearch.sh" 2>/dev/null; then
+    err "autoresearch.sh: should output METRIC lines or delegate to a binary that does"
   fi
 else
   err "autoresearch.sh: file not found (required benchmark script)"

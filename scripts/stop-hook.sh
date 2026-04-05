@@ -68,7 +68,7 @@ fi
 # Check maxExperiments from JSONL (the real cap)
 if [[ -n "$STATE_CWD" ]] && [[ -f "$STATE_CWD/autoresearch.jsonl" ]]; then
   JSONL="$STATE_CWD/autoresearch.jsonl"
-  MAX_EXP=$(grep '"type":"config"' "$JSONL" 2>/dev/null | head -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
+  MAX_EXP=$(grep '"type":"config"' "$JSONL" 2>/dev/null | tail -1 | jq -r '.maxExperiments // empty' 2>/dev/null)
   TOTAL_EXP=$(grep -c '"status"' "$JSONL" 2>/dev/null) || TOTAL_EXP=0
   if [[ -n "$MAX_EXP" ]] && [[ "$MAX_EXP" =~ ^[0-9]+$ ]] && [[ $TOTAL_EXP -ge $MAX_EXP ]]; then
     log "maxExperiments reached ($TOTAL_EXP/$MAX_EXP), allowing exit"
@@ -82,8 +82,7 @@ fi
 NOW=$(date +%s)
 LAST_RESUME="${LAST_RESUME:-0}"
 if [[ $((NOW - LAST_RESUME)) -lt 30 ]]; then
-  log "Rate limited (last resume ${LAST_RESUME}, now ${NOW}), allowing exit"
-  rm "$STATE_FILE"
+  log "Rate limited (last resume ${LAST_RESUME}, now ${NOW}), allowing exit (state file preserved for next attempt)"
   exit 0
 fi
 
@@ -91,7 +90,7 @@ fi
 CRASH_WARNING=""
 if [[ -n "$STATE_CWD" ]] && [[ -f "$STATE_CWD/autoresearch.jsonl" ]]; then
   LAST3=$(grep '"status"' "$STATE_CWD/autoresearch.jsonl" | tail -3 | jq -r '.status' 2>/dev/null)
-  CRASH_COUNT=$(echo "$LAST3" | grep -c -E 'crash|checks_failed' || true)
+  CRASH_COUNT=$(echo "$LAST3" | grep -c -E 'crash|guard_failed' || true)
   if [[ "$CRASH_COUNT" -ge 3 ]]; then
     CRASH_WARNING="WARNING: Last 3 experiments crashed or failed checks. Consider a structurally different approach. Read autoresearch.md carefully before continuing."
   fi

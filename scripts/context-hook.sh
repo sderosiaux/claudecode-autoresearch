@@ -35,7 +35,7 @@ KEPT=$(grep -c '"keep"' "$JSONL" 2>/dev/null) || KEPT=0
 DISCARDED=$(grep -c '"discard"' "$JSONL" 2>/dev/null) || DISCARDED=0
 
 # --- Config ---
-CONFIG_LINE=$(grep '"type":"config"' "$JSONL" 2>/dev/null | head -1)
+CONFIG_LINE=$(grep '"type":"config"' "$JSONL" 2>/dev/null | tail -1)
 
 # --- Phase label ---
 if [[ $TOTAL -lt 20 ]]; then
