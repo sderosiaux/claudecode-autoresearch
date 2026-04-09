@@ -17,6 +17,8 @@ Use this table in autoresearch.md's Problem Profile section. Map each identified
 | Concurrency               | Shared-nothing, per-thread buffers     | Lock-free, batching               | More locking granularity |
 | Startup                   | AOT, CDS, lazy init, native-image      | Reduce classpath, class preload   | Runtime tuning           |
 | External                  | Batching, caching, connection pool     | Async/parallel calls              | Code-level micro-opt     |
+| Memory-TLB                | Hugepages (MAP_HUGETLB/madvise)        | Reduce working set, NUMA-local    | Algorithm micro-opt      |
+| System-mismatch           | Match target env, read target spec     | System-level changes (allocator)  | ALL code-level changes   |
 
 ## Dimension Checklist
 

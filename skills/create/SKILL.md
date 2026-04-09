@@ -44,9 +44,13 @@ All scripts are in the plugin. Reference them as:
    STATEOF
    ```
    **IMPORTANT:** The `session_id` value must match the current Claude Code session ID.
-9. **Profile & Classify** before any optimization.
-   a. Profile the workload (perf, profiler, flamegraph, GC logs, iostat, strace — whatever fits).
-   b. Classify bottleneck: CPU-compute, CPU-branch, Memory-bandwidth, Memory-allocation, I/O-read, I/O-write, Concurrency, Startup, External.
+9. **Target environment audit** before any optimization.
+   a. **Read the target spec FIRST.** If the benchmark runs on a specific server/container/VM, find its exact spec (CPU model, cache sizes, OS version, kernel features like hugepages/THP, available libraries, compiler flags). This is the #1 constraint — code that wins locally but ignores the target environment will not transfer. Document specs in autoresearch.md under "Target Environment".
+   b. **Match the test environment.** If running locally or on a VM, match the target as closely as possible (same CPU family, same OS, same allocator, same kernel config). Bare-metal for PMU access if profiling. If local/target ratio is constant across experiments, the bottleneck is SYSTEMIC (TLB, allocator, NUMA, frequency), not algorithmic — focus experiments on system-level changes.
+   c. **Identify free-lunch zones.** If the benchmark harness separates setup from measurement (constructor outside timer, warmup phase, etc.), document exactly what work is "free" and exploit it aggressively (pre-allocation, page pre-faulting, cache warming, data structure precomputation).
+10. **Profile & Classify** the workload.
+   a. Profile (perf, profiler, flamegraph, GC logs, iostat, strace — whatever fits).
+   b. Classify bottleneck: CPU-compute, CPU-branch, Memory-bandwidth, Memory-allocation, Memory-TLB, I/O-read, I/O-write, Concurrency, Startup, External.
    c. Write the **Problem Profile** in autoresearch.md. Build a **Decision Tree** (see `${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md` for the template table).
    d. **Cross-signal correlation**: join two profiler signals to find root causes at intersections (CPU x allocations, CPU x exceptions, alloc x thread-state, I/O x endpoints).
    e. **Characterize the search space**: document every tunable dimension in the "Search Space" section of autoresearch.md — type (continuous, discrete, categorical), range/values, dependencies.
@@ -167,12 +171,14 @@ Each iteration:
 12. Repeat
 
 **When stuck (5+ consecutive discards), escalate in order:**
-1. **Re-read ALL in-scope files** from scratch — you may have missed something
-2. **Re-read the original goal/direction** — recalibrate
-3. **Review full experiment history** (`git log --oneline -50`) — look for patterns in what worked vs failed
-4. **Combine near-misses** — two changes that individually didn't help might work together
-5. **Try the OPPOSITE** of what hasn't been working — if optimizing in one direction, reverse
-6. **Radical architecture change** — rethink the approach entirely, different algorithm/structure
+1. **Re-read the TARGET ENVIRONMENT spec** — you may have missed a system feature (hugepages, allocator, CPU feature, kernel config)
+2. **Check the local/target ratio** — if it's CONSTANT across experiments, stop optimizing code and start optimizing the system layer (allocation strategy, page size, TLB, NUMA)
+3. **Re-read ALL in-scope files** from scratch — you may have missed something
+4. **Re-read the original goal/direction** — recalibrate
+5. **Review full experiment history** (`git log --oneline -50`) — look for patterns in what worked vs failed
+6. **Combine near-misses** — two changes that individually didn't help might work together
+7. **Try the OPPOSITE** of what hasn't been working — if optimizing in one direction, reverse
+8. **Radical architecture change** — rethink the approach entirely, different algorithm/structure
 
 Also read `${CLAUDE_PLUGIN_ROOT}/skills/create/REFERENCE.md` for exploration strategies, dimension checklists, decision tree templates, and optimization patterns.
 
