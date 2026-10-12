@@ -6,6 +6,8 @@ The new self-hosted Java/JVM workbench has a web UI, durable campaigns, approved
 
 Claude integration currently requires explicitly selected estimated accounting. A strict provider-billing guarantee is unavailable and that mode is refused. The development workbench is not yet the complete first public release described in the specification.
 
+See the [product roadmap](ROADMAP.md) for remaining work, priorities and acceptance criteria.
+
 ## Existing Claude Code plugin
 
 Autonomous experiment loop for Claude Code. Edit, benchmark, keep or discard, repeat forever.

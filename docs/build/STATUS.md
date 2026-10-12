@@ -4,7 +4,7 @@ The workbench is an executable development version with a bundled UI, CLI and pu
 
 **The first public release criteria are not all met.** Native Claude Code uses estimated accounting; strict invoice enforcement is refused. A complete, accepted live-native optimization and autonomous measurement-preparation workflow remain unverified. Private application source, workloads, measurements, session traces and account usage are excluded from this repository.
 
-Start with [the workbench guide](../WORKBENCH.md). The [delivery checklist](DELIVERY.md) tracks the current validation work; the [product specification](../plans/2026-10-11-performance-research-product-spec.md) defines the release gates.
+Start with [the workbench guide](../WORKBENCH.md). The [delivery checklist](DELIVERY.md) summarizes this snapshot; the [product roadmap](../../ROADMAP.md) prioritizes remaining work; the [product specification](../plans/2026-10-11-performance-research-product-spec.md) defines the release gates.
 
 ## Implemented behavior
 

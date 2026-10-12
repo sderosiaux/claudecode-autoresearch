@@ -19,6 +19,8 @@ The wheel installation passed nine checks, including fourteen linked assets and 
 
 ## Remaining product and validation work
 
+The [product roadmap](../../ROADMAP.md) gives these gaps a delivery order and acceptance criteria.
+
 - Accessible onboarding for arbitrary repositories without workload-specific manual setup.
 - More general goal-dependent readiness analysis and autonomous instrumentation/protocol preparation.
 - Adaptive research strategies, stagnation diagnosis, attributed strategy imports and combining candidate branches.
