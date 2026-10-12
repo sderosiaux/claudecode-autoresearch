@@ -1,5 +1,13 @@
 # claudecode-autoresearch
 
+## Performance workbench (in development)
+
+The new self-hosted Java/JVM workbench has a web UI, durable campaigns, approved benchmark protocols, isolated Docker runs, candidate comparisons, evidence exports and a draft-PR review workflow. See [installation and usage](docs/WORKBENCH.md), the [product specification](docs/plans/2026-10-11-performance-research-product-spec.md) and [verified build status](docs/build/STATUS.md).
+
+Claude integration currently requires explicitly selected estimated accounting. A strict provider-billing guarantee is unavailable and that mode is refused. The development workbench is not yet the complete first public release described in the specification.
+
+## Existing Claude Code plugin
+
 Autonomous experiment loop for Claude Code. Edit, benchmark, keep or discard, repeat forever.
 
 *Inspired by [pi-autoresearch](https://github.com/davebcn87/pi-autoresearch) and [karpathy/autoresearch](https://github.com/karpathy/autoresearch).*

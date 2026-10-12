@@ -1,0 +1,11 @@
+--- a/StreamProcessor.java
++++ b/StreamProcessor.java
+@@ -3,7 +3,7 @@
+ 
+ /** Candidate-owned processor. The harness, input and reference evaluator stay fixed. */
+ public final class StreamProcessor {
+-    static final boolean COPY_PAYLOAD = true;
++    static final boolean COPY_PAYLOAD = false;
+     static final int BATCH_SIZE = 1;
+     private final CRC32 crc = new CRC32();
+ 

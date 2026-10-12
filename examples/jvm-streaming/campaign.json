@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "name": "public-jvm-copy-cost",
+  "repository": ".",
+  "goal": "Reduce main-thread allocations while preserving completed throughput and CRC correctness on the public synthetic stream.",
+  "budget_usd": "1",
+  "agent": {
+    "kind": "manual",
+    "enforcement": "strict"
+  },
+  "runner": {
+    "kind": "docker",
+    "image": "eclipse-temurin:25-jdk"
+  },
+  "limits": {
+    "max_experiments": 4,
+    "max_active_seconds": 600,
+    "max_task_seconds": 30,
+    "max_preparation_attempts": 1
+  },
+  "protocol": {
+    "schema_version": 1,
+    "command": [
+      "sh",
+      "run.sh",
+      "--duration",
+      "1",
+      "--warmup",
+      "0.5"
+    ],
+    "metrics": [
+      {
+        "name": "main_thread.allocated_bytes_per_message",
+        "unit": "bytes/message",
+        "direction": "minimize",
+        "role": "objective",
+        "min_repetitions": 3,
+        "minimum_improvement": 0.05,
+        "max_cv": 0.3
+      },
+      {
+        "name": "application.completed_messages_per_second",
+        "unit": "messages/s",
+        "direction": "maximize",
+        "role": "constraint",
+        "operator": "gte",
+        "value": 100000,
+        "min_repetitions": 3,
+        "max_cv": 0.3
+      },
+      {
+        "name": "application.error_rate",
+        "unit": "fraction",
+        "direction": "minimize",
+        "role": "constraint",
+        "operator": "eq",
+        "value": 0,
+        "min_repetitions": 3,
+        "max_cv": 0.3
+      }
+    ],
+    "repetitions": 3,
+    "confirmation_repetitions": 3,
+    "timeout_seconds": 30,
+    "protected_paths": [
+      "StreamWorkload.java",
+      "run.sh"
+    ],
+    "environment": {}
+  }
+}
